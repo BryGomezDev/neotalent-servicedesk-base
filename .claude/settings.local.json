@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($tickets = Get-Content \"C:\\\\Users\\\\BryDev\\\\neotalent-servicedesk-base\\\\data\\\\tickets.json\" -Raw | ConvertFrom-Json; $tickets.Count)"
+    ]
+  }
+}
