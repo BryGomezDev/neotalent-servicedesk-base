@@ -68,6 +68,13 @@ en el dataset.
 Ambos campos se añaden a los 60 tickets. Ningún ticket puede quedar
 sin uno de los dos campos o con un valor fuera del catálogo cerrado.
 
+> **Excepción de idioma (Principio 6):** el valor `provisioning` es un
+> término técnico del dominio IAM/identidades (SailPoint, Active
+> Directory) sin equivalente establecido en español en ese contexto
+> profesional. Se acepta como excepción al requisito de español, igual
+> que `fetch` o `JSON`. El resto de valores del catálogo (`fallo-tecnico`,
+> `configuracion`, `incidente-seguridad`) están en español.
+
 ## Criterios de clasificación
 
 Claude Code infiere `categoria` y `prioridad` a partir de `titulo`,
@@ -108,10 +115,12 @@ debe ser JSON válido y mantener todos los campos originales intactos.
 
 ### RF-02 — Validación del dataset
 
-Existe un script o función de test que recorre el array y verifica
+Existe un script Node.js en `tests/` que recorre el array y verifica
 que todos los objetos tienen `categoria` con valor del catálogo
 cerrado y `prioridad` con valor del catálogo cerrado. Retorna error
-y lista los tickets que fallen si alguno no cumple.
+y lista los tickets que fallen si alguno no cumple. Este script debe
+ejecutarse como condición de cierre de cualquier tarea que modifique
+`data/tickets.json`.
 
 ### RF-03 — Visualización de la bandeja
 
@@ -143,8 +152,10 @@ El orden se mantiene al aplicar filtros.
 ### RF-08 — Tests de utilidades
 
 Toda función pura añadida a `js/utils/` para filtrado, ordenación o
-formateo de los nuevos campos tiene un test automatizado en verde,
-ejecutable sin dependencias externas.
+formateo de los nuevos campos tiene un test automatizado en verde.
+Los tests se escriben como scripts JavaScript en `tests/` y se
+ejecutan con `node <archivo>.test.js` usando únicamente el módulo
+`assert` nativo de Node.js, sin instalar ningún paquete.
 
 ## Criterios de aceptación
 
@@ -158,12 +169,15 @@ ejecutable sin dependencias externas.
 | CA-06 | El filtro por categoría reduce la lista al subconjunto correcto       | Activar cada categoría individualmente y comparar con el recuento del dataset |
 | CA-07 | El filtro por prioridad reduce la lista al subconjunto correcto       | Ídem con cada nivel de prioridad                                              |
 | CA-08 | La bandeja carga ordenada `alta` → `media` → `baja` por defecto      | Inspección visual en carga inicial sin filtros                                |
-| CA-09 | Todos los tests de `js/utils/` pasan en verde                        | Ejecutar suite de tests; salida sin errores                                   |
+| CA-09 | Todos los tests de `js/utils/` pasan en verde                        | `node tests/<nombre>.test.js` — salida sin errores ni excepciones             |
 | CA-10 | La interfaz funciona desde un servidor HTTP local                     | `python -m http.server 8080` → `http://localhost:8080`; sin errores en consola |
 
 ## Restricciones técnicas
 
-Derivan directamente de `docs/constitution.md` y no son negociables:
+Las restricciones siguientes son requisitos de este proyecto. Añadir
+cualquier dependencia nueva (paquete npm, framework, herramienta de
+build) requiere actualizar primero `docs/constitution.md` con la
+justificación escrita que ese documento exige.
 
 - Stack vanilla: HTML + CSS + JS sin frameworks, sin librerías de
   terceros, sin bundler.
@@ -172,6 +186,7 @@ Derivan directamente de `docs/constitution.md` y no son negociables:
 - El código que clasifica los tickets no importa ni depende de
   `js/components/` ni de `css/`.
 - Todo el código (nombres de variables, funciones, ids del DOM) y los
-  mensajes visibles al operador van en español.
+  mensajes visibles al operador van en español, salvo las excepciones
+  declaradas en este documento.
 - La única fuente de datos es `data/tickets.json`; no hay base de
   datos ni servicio externo.

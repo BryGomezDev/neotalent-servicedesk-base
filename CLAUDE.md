@@ -28,7 +28,7 @@ Proyecto de una sola página, HTML/CSS/JS plano, sin frameworks ni bundler.
 - `js/app.js` — punto de entrada JS: carga el dataset, gestiona estado (filtros activos, ticket seleccionado), y coordina componentes y utilidades.
 - `js/components/` — piezas de UI reutilizables (fila de ticket, ficha de detalle, filtro); reciben datos, escriben en el DOM, no tocan `tickets.json` directamente.
 - `js/utils/` — funciones puras sin estado: filtrado, formateo de fechas, agrupaciones por zona/sistema. Las usan tanto `app.js` como los componentes.
-- `data/tickets.json` — dataset de 50 incidencias de seguridad física. Campos actuales: `id`, `titulo`, `descripcion`, `sistema_afectado`, `reportado_por`, `zona`, `fecha`, `estado`. Faltan `prioridad` y `categoria` — se añaden mediante clasificación.
+- `data/tickets.json` — dataset de 60 incidencias de seguridad física. Campos actuales: `id`, `titulo`, `descripcion`, `sistema_afectado`, `reportado_por`, `zona`, `fecha`, `estado`. Faltan `prioridad` y `categoria` — se añaden mediante clasificación siguiendo los criterios de `docs/spec.md`.
 
 ## Clasificación de tickets con Claude
 
@@ -42,7 +42,7 @@ No se necesita ninguna API key en el proyecto: Claude Code opera localmente sobr
 
 ## Documentos de referencia
 
-- `docs/spec.md` — especificación funcional (Fase 1). Define qué construir; es la entrada de la Fase 3 (Desarrollo). Estará vacío hasta la Sesión 3.
-- `docs/diseno.md` — decisiones de diseño y wireframes de Artifacts (Fase 2). Estará vacío hasta la Sesión 3.
+- `docs/spec.md` — especificación funcional (Fase 1). Fuente de verdad de qué construir; entrada de la Fase 3 (Desarrollo).
+- `docs/diseno.md` — decisiones de diseño y wireframes (Fase 2). Pendiente de redactar.
 
 Cuando estén rellenos, `spec.md` es la fuente de verdad para las funcionalidades a implementar.
