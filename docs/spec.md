@@ -90,19 +90,40 @@ sola. Cuando la señal sea ambigua, se aplica el nivel más conservador
 | `incidente-seguridad` | Acceso no autorizado, intrusión detectada, alarma activa sin causa conocida, credencial comprometida o uso indebido documentado.        |
 | `fallo-tecnico`       | Componente de hardware o software que ha dejado de funcionar (alarma desactivada, lector inoperativo, cámara caída, barrera bloqueada). |
 | `provisioning`        | Alta, baja o modificación de un perfil, credencial o acceso de una persona (guardia nuevo sin perfil, baja no procesada, acceso caducado). |
-| `configuracion`       | Sincronización de cuadrantes, actualización de parámetros, ajuste de turnos o cambio de configuración que no implica fallo técnico ni provisioning de persona. |
+| `configuracion`       | Sincronización de cuadrantes, actualización de parámetros, ajuste de turnos o cambio de configuración que no implica fallo técnico ni provisioning de persona. Incluye solicitudes de histórico o informe de auditoría. |
+
+#### Regla de precedencia entre categorías
+
+Cuando un ticket encaja en más de una categoría, se aplica en este orden:
+
+> `incidente-seguridad` > `fallo-tecnico` > `provisioning` > `configuracion`
+
+Ejemplos de aplicación:
+- Alarma activa sin causa aparente → `incidente-seguridad` (el riesgo de seguridad activo tiene precedencia sobre el posible fallo de hardware).
+- Baja no procesada con credencial aún activa → `incidente-seguridad` (la exposición activa supera la tarea de provisioning pendiente).
+- Doble fichaje detectado → `incidente-seguridad` si hay evidencia de uso indebido; `fallo-tecnico` si la descripción apunta solo a un error del sistema de registro.
+- Checkpoint no registrado en ronda → `fallo-tecnico` si el dispositivo o la app fallaron; `incidente-seguridad` solo si hay evidencia de que la ronda no se realizó.
+- Solicitud de histórico o informe de auditoría → `configuracion` (no implica fallo técnico ni provisioning de persona).
 
 ### Prioridad
+
+#### Definición de zona perimetral
+
+A efectos de la tabla siguiente, una zona se considera **perimetral** si el valor
+del campo `zona` contiene alguna de estas palabras clave (insensible a mayúsculas):
+`Perímetro`, `Acceso`, `Entrada`, `Vehículos`, `Barrera`, `Valla`, `Puerta principal`,
+`Control de acceso`. Cualquier zona que no contenga ninguna de estas palabras se
+trata como **interior**. En caso de duda, se aplica interior.
 
 | Categoría             | Condición adicional                                                       | Prioridad |
 |-----------------------|---------------------------------------------------------------------------|-----------|
 | `incidente-seguridad` | Cualquier zona                                                            | `alta`    |
 | `fallo-tecnico`       | Zona de perímetro exterior, acceso principal o entrada de vehículos       | `alta`    |
 | `fallo-tecnico`       | Zona interior (almacén, pasillo, oficina)                                 | `media`   |
-| `provisioning`        | Ticket abierto que bloquea el acceso activo de una persona hoy            | `media`   |
-| `provisioning`        | Ticket planificable (la persona no necesita acceso de forma urgente)      | `baja`    |
-| `configuracion`       | Ticket abierto que bloquea operación en curso                             | `media`   |
-| `configuracion`       | Ticket planificable o el sistema funciona con la configuración actual     | `baja`    |
+| `provisioning`        | Ticket `abierto` y descripción indica que la persona actualmente no puede acceder (acceso denegado, perfil sin crear, baja no tramitada que expone el sistema) | `media`   |
+| `provisioning`        | Ticket `abierto` con tarea planificable (acceso futuro, renovación próxima, ajuste no urgente) o ticket `cerrado`                                             | `baja`    |
+| `configuracion`       | Ticket `abierto` y el sistema no puede cumplir su función actual (guardias sin asignar en turno activo, cuadrante con huecos en turno en curso)                | `media`   |
+| `configuracion`       | Ticket `abierto` pero el sistema funciona (configuración incorrecta que no impide la operación actual) o ticket `cerrado`                                     | `baja`    |
 
 ## Requisitos funcionales
 
@@ -132,22 +153,37 @@ muestran al menos: `id`, `titulo`, `zona`, `fecha`, `estado`,
 
 `prioridad` se muestra como etiqueta coloreada: `alta` → rojo,
 `media` → amarillo/naranja, `baja` → verde. `categoria` se muestra
-como etiqueta neutra sin código de color propio.
+con un único color de fondo neutro uniforme para todos sus valores,
+sin diferenciación cromática entre categorías y sin usar rojo, amarillo
+ni verde.
 
 ### RF-05 — Filtro por categoría
 
-El operador puede seleccionar una o más categorías para ver solo los
-tickets que las cumplan. Sin filtro activo, se muestran todos.
+El operador puede seleccionar una o más categorías. Cuando hay varias
+seleccionadas, se muestran los tickets que cumplan cualquiera de ellas
+(OR intra-dimensión). Sin filtro activo, se muestran todos.
 
 ### RF-06 — Filtro por prioridad
 
-El operador puede seleccionar uno o más niveles de prioridad. Sin
-filtro activo, se muestran todos.
+El operador puede seleccionar uno o más niveles de prioridad. Cuando
+hay varios seleccionados, se muestran los tickets que cumplan cualquiera
+de ellos (OR intra-dimensión). Sin filtro activo, se muestran todos.
+
+Cuando los filtros de categoría y prioridad están activos
+simultáneamente, se aplica AND entre dimensiones: se muestran solo los
+tickets que cumplan el filtro de categoría Y el filtro de prioridad
+activos a la vez.
+
+Si la combinación de filtros activos no coincide con ningún ticket, la
+bandeja muestra el mensaje `"Sin resultados para los filtros activos."`
+El filtro no se resetea automáticamente.
 
 ### RF-07 — Orden por prioridad
 
 La bandeja se ordena `alta` → `media` → `baja` por defecto al cargar.
-El orden se mantiene al aplicar filtros.
+El orden se mantiene al aplicar filtros. Cuando dos tickets tienen la
+misma prioridad, se ordenan por `fecha` descendente (el más reciente
+primero).
 
 ### RF-08 — Tests de utilidades
 
@@ -166,9 +202,10 @@ ejecutan con `node <archivo>.test.js` usando únicamente el módulo
 | CA-03 | Ningún campo original fue modificado o eliminado                      | Diff del JSON original vs. enriquecido muestra solo adiciones                 |
 | CA-04 | La bandeja muestra los 7 campos requeridos por ticket                 | Inspección visual con todos los filtros desactivados                          |
 | CA-05 | Las etiquetas de prioridad muestran el color correcto                 | Inspección visual: alta=rojo, media=amarillo/naranja, baja=verde              |
-| CA-06 | El filtro por categoría reduce la lista al subconjunto correcto       | Activar cada categoría individualmente y comparar con el recuento del dataset |
-| CA-07 | El filtro por prioridad reduce la lista al subconjunto correcto       | Ídem con cada nivel de prioridad                                              |
-| CA-08 | La bandeja carga ordenada `alta` → `media` → `baja` por defecto      | Inspección visual en carga inicial sin filtros                                |
+| CA-06 | El filtro por categoría reduce la lista al subconjunto correcto; filtros múltiples aplican OR; combinado con prioridad aplica AND | Activar cada categoría individualmente y en combinación con prioridad; comparar recuento con el dataset |
+| CA-07 | El filtro por prioridad reduce la lista al subconjunto correcto; filtros múltiples aplican OR; combinado con categoría aplica AND | Ídem con cada nivel de prioridad y en combinación con categoría               |
+| CA-08 | La bandeja carga ordenada `alta` → `media` → `baja`; empates resueltos por `fecha` descendente | Inspección visual en carga inicial; verificar que dentro del mismo nivel el más reciente aparece primero |
+| CA-11 | Filtros sin resultados muestran `"Sin resultados para los filtros activos."` sin resetear el filtro | Activar combinación de filtros que no coincida con ningún ticket              |
 | CA-09 | Todos los tests de `js/utils/` pasan en verde                        | `node tests/<nombre>.test.js` — salida sin errores ni excepciones             |
 | CA-10 | La interfaz funciona desde un servidor HTTP local                     | `python -m http.server 8080` → `http://localhost:8080`; sin errores en consola |
 
