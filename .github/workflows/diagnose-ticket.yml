@@ -15,6 +15,7 @@ jobs:
       - uses: anthropics/claude-code-base-action@beta
         with:
           allowed_tools: "Read,Write"
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Read data/tickets.json and docs/spec.md.
 
@@ -42,8 +43,6 @@ jobs:
             One concise paragraph describing the next step.
 
             Do not modify any existing file. Only create the new docs/diagnostico-<id>.md.
-        env:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
       - name: Commit diagnosis
         run: |
