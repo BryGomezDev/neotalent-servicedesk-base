@@ -8,7 +8,9 @@
       "Bash(git commit *)",
       "Bash(git reset *)",
       "Bash(claude setup-token *)",
-      "Bash(Get-Content *)"
+      "Bash(Get-Content *)",
+      "Bash(node tests/classify.test.js)",
+      "Bash(node tests/prioritize.test.js)"
     ]
   }
 }
