@@ -22,7 +22,8 @@
       "mcp__claude_ai_n8n__validate_workflow",
       "mcp__claude_ai_n8n__create_workflow_from_code",
       "WebFetch(domain:servicedesk-grupo-5.surge.sh)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(npx surge *)"
     ]
   }
 }
