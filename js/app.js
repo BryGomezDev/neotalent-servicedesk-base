@@ -1,14 +1,39 @@
-// Lógica de la interfaz — se construye en la Sesión 3, Fase 3 (Desarrollo):
-// listar tickets, filtrar, ficha de detalle, clasificación de prioridad/categoría.
-// De momento solo confirma que el dataset carga bien.
+let ticketsBase = [];
+let todosLosTickets = [];
 
-fetch("data/tickets.json")
+function ticketsLocales() {
+  return JSON.parse(localStorage.getItem('tickets-locales') || '[]');
+}
+
+function siguienteIdLocal() {
+  const nums = ticketsLocales()
+    .map(t => parseInt(t.id.replace('LOCAL-', ''), 10))
+    .filter(n => !isNaN(n));
+  const max = nums.length ? Math.max(...nums) : 0;
+  return 'LOCAL-' + String(max + 1).padStart(4, '0');
+}
+
+function fusionar() {
+  todosLosTickets = [...ticketsBase, ...ticketsLocales()];
+}
+
+function actualizarVista() {
+  const filtros = obtenerFiltrosActivos();
+  const filtrados = filtrarTickets(todosLosTickets, filtros);
+  const ordenados = ordenarPorPrioridad(filtrados);
+  renderizarTabla(ordenados);
+}
+
+fetch('data/tickets.json')
   .then((r) => r.json())
-  .then((tickets) => {
-    document.getElementById("conteo").textContent =
-      `${tickets.length} tickets cargados, todavía sin clasificar.`;
+  .then((base) => {
+    ticketsBase = base;
+    fusionar();
+    renderizarFiltros(actualizarVista);
+    actualizarVista();
   })
   .catch(() => {
-    document.getElementById("conteo").textContent =
-      "No se ha podido cargar data/tickets.json.";
+    const main = document.querySelector('main');
+    if (main) main.innerHTML =
+      '<p class="error-carga">Error: no se pudo cargar data/tickets.json. Sirve desde un servidor HTTP.</p>';
   });
