@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nuevo ticket — Mini Service Desk</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="header-app">
+    <span class="header-logo">
+      Mini Service Desk
+      <span class="logo-sub">Seguridad física</span>
+    </span>
+    <a class="header-nav-item" href="triaje.html">← Bandeja</a>
+    <div class="header-spacer"></div>
+    <span class="operador-badge">JF</span>
+  </header>
+
+  <main class="pagina-contenido">
+    <div class="breadcrumb">
+      <a href="triaje.html">Bandeja</a>
+      <span class="breadcrumb-sep">›</span>
+      <span>Nuevo ticket</span>
+    </div>
+
+    <!-- Banner de éxito -->
+    <div id="banner-exito" class="banner-exito">
+      <span class="banner-exito__texto">Ticket <strong id="banner-id"></strong> creado correctamente.</span>
+      <a id="banner-ver" href="#" class="btn btn-primario btn-sm">Ver ticket</a>
+      <button id="banner-otro" class="btn btn-secundario btn-sm">Crear otro</button>
+    </div>
+
+    <div class="form-layout">
+      <!-- Formulario principal -->
+      <div class="form-panel">
+        <h1 class="form-titulo">Nuevo ticket</h1>
+
+        <form id="form-ticket" class="form-grupo" novalidate>
+
+          <label class="campo-label">Título
+            <input id="f-titulo" name="titulo" type="text"
+                   class="campo-input" maxlength="120"
+                   placeholder="Describe el problema en una frase" required />
+            <span class="campo-error" id="err-titulo"></span>
+          </label>
+
+          <label class="campo-label">Descripción
+            <textarea id="f-descripcion" name="descripcion"
+                      class="campo-textarea" rows="5"
+                      placeholder="Detalla qué ocurre, cuándo y dónde" required></textarea>
+            <span class="campo-contador" id="cont-desc">0 / mín. 20</span>
+            <span class="campo-error" id="err-desc"></span>
+          </label>
+
+          <label class="campo-label">Sistema afectado
+            <input id="f-sistema" name="sistema_afectado" type="text"
+                   class="campo-input"
+                   placeholder="p. ej. Lector biométrico, CCTV, Control de acceso" required />
+            <span class="campo-error" id="err-sistema"></span>
+          </label>
+
+          <label class="campo-label">Zona
+            <input id="f-zona" name="zona" type="text"
+                   class="campo-input" list="zonas-list"
+                   placeholder="p. ej. Acceso principal, Almacén B" required />
+            <datalist id="zonas-list">
+              <option value="Acceso principal"></option>
+              <option value="Perímetro norte"></option>
+              <option value="Perímetro sur"></option>
+              <option value="Entrada vehículos"></option>
+              <option value="Control de acceso"></option>
+              <option value="Almacén A"></option>
+              <option value="Almacén B"></option>
+              <option value="Pasillo central"></option>
+              <option value="Oficinas planta 1"></option>
+              <option value="Sala de servidores"></option>
+            </datalist>
+            <span class="campo-error" id="err-zona"></span>
+          </label>
+
+          <label class="campo-label">Categoría
+            <select id="f-categoria" name="categoria" class="campo-select" required>
+              <option value="">— selecciona —</option>
+              <option value="incidente-seguridad">incidente-seguridad</option>
+              <option value="fallo-tecnico">fallo-tecnico</option>
+              <option value="provisioning">provisioning</option>
+              <option value="configuracion">configuracion</option>
+            </select>
+            <span class="campo-error" id="err-cat"></span>
+          </label>
+
+          <label class="campo-label">Prioridad
+            <select id="f-prioridad" name="prioridad" class="campo-select" required>
+              <option value="">— selecciona —</option>
+              <option value="alta">alta</option>
+              <option value="media">media</option>
+              <option value="baja">baja</option>
+            </select>
+            <span class="campo-error" id="err-pri"></span>
+          </label>
+
+          <div class="form-acciones">
+            <button type="submit" class="btn btn-verde">Guardar ticket</button>
+            <button type="button" id="btn-descartar" class="btn btn-secundario">Descartar</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Aside de autoasignación -->
+      <aside class="form-aside">
+        <p class="aside-titulo">Campos asignados automáticamente</p>
+
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">ID</span>
+          <span class="aside-campo__valor" id="preview-id">LOCAL-…</span>
+        </div>
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">Fecha</span>
+          <span class="aside-campo__valor" id="preview-fecha"></span>
+        </div>
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">Estado inicial</span>
+          <span class="aside-campo__valor">
+            <span class="badge badge-abierto">abierto</span>
+          </span>
+        </div>
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">Reportado por</span>
+          <span class="aside-campo__valor">Operador</span>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Diálogo de descarte -->
+  <div id="dialogo-descartar" class="dialogo-overlay">
+    <div class="dialogo-caja">
+      <h2 class="dialogo-titulo">¿Descartar cambios?</h2>
+      <p class="dialogo-texto">Has rellenado campos del formulario. Si sales ahora, los datos se perderán.</p>
+      <div class="dialogo-acciones">
+        <button id="dialogo-no" class="btn btn-secundario">Seguir editando</button>
+        <button id="dialogo-si" class="btn btn-rojo">Descartar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Preview de ID y fecha al cargar
+    (function () {
+      const locales = JSON.parse(localStorage.getItem('tickets-locales') || '[]');
+      const nums = locales.map(t => parseInt(t.id.replace('LOCAL-', ''), 10)).filter(n => !isNaN(n));
+      const max = nums.length ? Math.max(...nums) : 0;
+      const nextId = 'LOCAL-' + String(max + 1).padStart(4, '0');
+      document.getElementById('preview-id').textContent = nextId;
+      document.getElementById('preview-fecha').textContent = new Date().toISOString().slice(0, 10);
+    })();
+
+    // Contador de descripción
+    const descEl = document.getElementById('f-descripcion');
+    const contEl = document.getElementById('cont-desc');
+    descEl.addEventListener('input', () => {
+      const n = descEl.value.length;
+      contEl.textContent = n + (n < 20 ? ' / mín. 20' : ' caracteres');
+      contEl.className = 'campo-contador' + (n < 20 && n > 0 ? ' critico' : '');
+    });
+
+    // Dirty tracking
+    let dirty = false;
+    document.getElementById('form-ticket').addEventListener('input', () => { dirty = true; });
+
+    // Validación
+    function validar() {
+      let ok = true;
+
+      function campo(id, errId, fn, msg) {
+        const el = document.getElementById(id);
+        const err = document.getElementById(errId);
+        if (!fn(el.value)) {
+          el.classList.add('error');
+          err.textContent = msg;
+          ok = false;
+        } else {
+          el.classList.remove('error');
+          err.textContent = '';
+        }
+      }
+
+      campo('f-titulo',     'err-titulo', v => v.trim().length >= 5 && v.trim().length <= 120, 'Entre 5 y 120 caracteres.');
+      campo('f-descripcion','err-desc',   v => v.trim().length >= 20,                           'Mínimo 20 caracteres.');
+      campo('f-sistema',    'err-sistema',v => v.trim().length > 0,                             'Campo obligatorio.');
+      campo('f-zona',       'err-zona',   v => v.trim().length > 0,                             'Campo obligatorio.');
+      campo('f-categoria',  'err-cat',    v => v !== '',                                        'Selecciona una categoría.');
+      campo('f-prioridad',  'err-pri',    v => v !== '',                                        'Selecciona una prioridad.');
+      return ok;
+    }
+
+    // Submit
+    document.getElementById('form-ticket').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!validar()) return;
+
+      const locales = JSON.parse(localStorage.getItem('tickets-locales') || '[]');
+      const nums = locales.map(t => parseInt(t.id.replace('LOCAL-', ''), 10)).filter(n => !isNaN(n));
+      const max = nums.length ? Math.max(...nums) : 0;
+      const id = 'LOCAL-' + String(max + 1).padStart(4, '0');
+
+      const ticket = {
+        id,
+        titulo:           document.getElementById('f-titulo').value.trim(),
+        descripcion:      document.getElementById('f-descripcion').value.trim(),
+        sistema_afectado: document.getElementById('f-sistema').value.trim(),
+        zona:             document.getElementById('f-zona').value.trim(),
+        categoria:        document.getElementById('f-categoria').value,
+        prioridad:        document.getElementById('f-prioridad').value,
+        fecha:            new Date().toISOString().slice(0, 10),
+        estado:           'abierto',
+        reportado_por:    'Operador',
+      };
+
+      locales.push(ticket);
+      localStorage.setItem('tickets-locales', JSON.stringify(locales));
+      dirty = false;
+
+      fetch('https://brygomez.app.n8n.cloud/webhook/tickets/nuevo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo: ticket.titulo, zona: ticket.zona, descripcion: ticket.descripcion }),
+      }).catch(() => {}); // fire-and-forget, no bloquea el flujo local
+
+      // Mostrar banner
+      document.getElementById('banner-id').textContent = id;
+      document.getElementById('banner-ver').href = `detalle-ticket.html?id=${encodeURIComponent(id)}`;
+      document.getElementById('banner-exito').classList.add('visible');
+      document.getElementById('form-ticket').style.display = 'none';
+    });
+
+    // Crear otro
+    document.getElementById('banner-otro').addEventListener('click', () => {
+      document.getElementById('banner-exito').classList.remove('visible');
+      document.getElementById('form-ticket').style.display = '';
+      document.getElementById('form-ticket').reset();
+      contEl.textContent = '0 / mín. 20';
+      dirty = false;
+      // Actualizar preview ID
+      const locales2 = JSON.parse(localStorage.getItem('tickets-locales') || '[]');
+      const nums2 = locales2.map(t => parseInt(t.id.replace('LOCAL-', ''), 10)).filter(n => !isNaN(n));
+      const max2 = nums2.length ? Math.max(...nums2) : 0;
+      document.getElementById('preview-id').textContent = 'LOCAL-' + String(max2 + 1).padStart(4, '0');
+    });
+
+    // Descartar con diálogo
+    const dialogo = document.getElementById('dialogo-descartar');
+    document.getElementById('btn-descartar').addEventListener('click', () => {
+      if (!dirty) { window.location.href = 'triaje.html'; return; }
+      dialogo.classList.add('visible');
+    });
+    document.getElementById('dialogo-no').addEventListener('click', () => dialogo.classList.remove('visible'));
+    document.getElementById('dialogo-si').addEventListener('click', () => { window.location.href = 'triaje.html'; });
+  </script>
+</body>
+</html>

@@ -12,7 +12,17 @@
       "Bash(node tests/classify.test.js)",
       "Bash(node tests/prioritize.test.js)",
       "Skill(update-config)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "mcp__claude_ai_n8n__get_workflow_sdk_reference",
+      "mcp__claude_ai_n8n__get_workflow_best_practices",
+      "mcp__claude_ai_n8n__search_nodes",
+      "mcp__claude_ai_n8n__get_node_types",
+      "mcp__claude_ai_n8n__search_projects",
+      "mcp__claude_ai_n8n__create_data_table",
+      "mcp__claude_ai_n8n__validate_workflow",
+      "mcp__claude_ai_n8n__create_workflow_from_code",
+      "WebFetch(domain:servicedesk-grupo-5.surge.sh)",
+      "Bash(git *)"
     ]
   }
 }
