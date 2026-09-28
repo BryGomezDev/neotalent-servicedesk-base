@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Auditoría pre-despliegue — Mini Service Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Tokens ─────────────────────────────────── */
+    :root {
+      --bg:         #F7F6F2;
+      --surface:    #FFFFFF;
+      --ink:        #0F0D1A;
+      --ink-2:      #4A4760;
+      --ink-3:      #8E8BA8;
+      --border:     #E4E2DC;
+      --border-2:   #D0CDCA;
+
+      --critico:    #C0392B;
+      --critico-bg: #FDF2F1;
+      --alto:       #D95E00;
+      --alto-bg:    #FEF5EE;
+      --medio:      #A07800;
+      --medio-bg:   #FEFBE8;
+      --bajo:       #1A6FB5;
+      --bajo-bg:    #EEF5FD;
+
+      --ok:         #1D7A4A;
+      --ok-bg:      #EDFAF3;
+
+      --accent:     #4826C4;
+      --code-bg:    #141020;
+      --code-text:  #C9C5E8;
+    }
+
+    /* ── Reset ──────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      background: rgba(72,38,196,0.07);
+      color: var(--accent);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    /* ── Layout ─────────────────────────────────── */
+    .page { max-width: 880px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── Header ─────────────────────────────────── */
+    .report-header {
+      background: var(--ink);
+      color: #fff;
+      margin: 0 -24px 48px;
+      padding: 48px 40px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .report-header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--critico) 0%, var(--alto) 33%, var(--medio) 66%, var(--bajo) 100%);
+    }
+
+    .report-header::after {
+      content: 'AUDIT';
+      position: absolute;
+      right: -10px; top: 50%;
+      transform: translateY(-50%);
+      font-family: 'Syne', sans-serif;
+      font-size: 120px;
+      font-weight: 800;
+      color: rgba(255,255,255,0.04);
+      letter-spacing: -0.04em;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .header-eyebrow {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 10px;
+    }
+
+    .header-title {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(26px, 4vw, 40px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+    }
+
+    .header-title span { color: rgba(255,255,255,0.4); }
+
+    .header-meta {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .header-meta strong { color: rgba(255,255,255,0.85); font-weight: 600; }
+
+    /* ── Severity chips ──────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .badge::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .badge-critico  { background: var(--critico-bg); color: var(--critico); }
+    .badge-critico::before  { background: var(--critico); }
+    .badge-alto     { background: var(--alto-bg);    color: var(--alto);    }
+    .badge-alto::before     { background: var(--alto); }
+    .badge-medio    { background: var(--medio-bg);   color: var(--medio);   }
+    .badge-medio::before    { background: var(--medio); }
+    .badge-bajo     { background: var(--bajo-bg);    color: var(--bajo);    }
+    .badge-bajo::before     { background: var(--bajo); }
+    .badge-ok       { background: var(--ok-bg);      color: var(--ok);      }
+    .badge-ok::before       { background: var(--ok); box-shadow: 0 0 0 2px rgba(29,122,74,0.3); }
+
+    /* ── Summary cards ───────────────────────────── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 48px;
+    }
+
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 3px solid;
+      padding: 20px 18px 18px;
+      border-radius: 2px;
+    }
+
+    .summary-card--critico { border-top-color: var(--critico); }
+    .summary-card--alto    { border-top-color: var(--alto); }
+    .summary-card--medio   { border-top-color: var(--medio); }
+    .summary-card--bajo    { border-top-color: var(--bajo); }
+
+    .summary-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      margin-bottom: 6px;
+    }
+
+    .summary-card--critico .summary-num { color: var(--critico); }
+    .summary-card--alto    .summary-num { color: var(--alto); }
+    .summary-card--medio   .summary-num { color: var(--medio); }
+    .summary-card--bajo    .summary-num { color: var(--bajo); }
+
+    .summary-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--ink-3);
+    }
+
+    /* ── Sections ────────────────────────────────── */
+    .section {
+      margin-bottom: 52px;
+    }
+
+    .section-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+    }
+
+    /* ── Finding cards ───────────────────────────── */
+    .finding {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid;
+      padding: 18px 20px;
+      margin-bottom: 12px;
+      border-radius: 0 2px 2px 0;
+      transition: box-shadow 150ms ease;
+    }
+
+    .finding:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+
+    .finding--critico { border-left-color: var(--critico); }
+    .finding--alto    { border-left-color: var(--alto);    }
+    .finding--medio   { border-left-color: var(--medio);   }
+    .finding--bajo    { border-left-color: var(--bajo);    }
+    .finding--ok      { border-left-color: var(--ok);      }
+
+    .finding-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .finding-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ink-3);
+      margin-right: 8px;
+    }
+
+    .finding-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+      flex: 1;
+      line-height: 1.4;
+    }
+
+    .finding-body {
+      font-size: 14px;
+      color: var(--ink-2);
+      line-height: 1.7;
+    }
+
+    .finding-ref {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--ink-3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Code blocks ─────────────────────────────── */
+    .code-block {
+      background: var(--code-bg);
+      border-radius: 6px;
+      padding: 20px 22px;
+      margin: 20px 0;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    .code-block__label {
+      position: absolute;
+      top: 10px; right: 14px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.2);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .code-block pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.8;
+      color: var(--code-text);
+      white-space: pre;
+      tab-size: 2;
+    }
+
+    .code-block .comment { color: #6D6A88; font-style: italic; }
+    .code-block .keyword { color: #E5A0FF; }
+    .code-block .string  { color: #A0E0A0; }
+    .code-block .prop    { color: #79C0FF; }
+    .code-block .value   { color: #FFA657; }
+    .code-block .selector{ color: #FFDD70; }
+
+    /* ── Data flow diagram ───────────────────────── */
+    .dataflow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 28px 24px;
+      margin: 20px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      overflow-x: auto;
+    }
+
+    .dataflow .node {
+      display: inline-block;
+      background: var(--ink);
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 3px;
+      font-size: 11.5px;
+    }
+
+    .dataflow .node-green  { background: #1D7A4A; }
+    .dataflow .node-purple { background: var(--accent); }
+    .dataflow .node-orange { background: #9A3A00; }
+    .dataflow .arrow { color: var(--ink-3); }
+    .dataflow .label { color: var(--ink-3); font-size: 11px; }
+
+    /* ── File tree ───────────────────────────────── */
+    .file-tree {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px 22px;
+      margin: 16px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.9;
+      color: var(--ink);
+      overflow-x: auto;
+    }
+
+    .file-tree .warn  { color: var(--alto); }
+    .file-tree .ok    { color: var(--ok); }
+    .file-tree .dead  { color: var(--ink-3); text-decoration: line-through; }
+    .file-tree .dim   { color: var(--ink-3); }
+
+    /* ── Action table ────────────────────────────── */
+    .action-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 13.5px;
+    }
+
+    .action-table thead th {
+      background: var(--ink);
+      color: rgba(255,255,255,0.75);
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .action-table tbody td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .action-table tbody tr:last-child td { border-bottom: none; }
+    .action-table tbody tr:hover { background: rgba(72,38,196,0.02); }
+
+    .action-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--accent);
+      opacity: 0.3;
+    }
+
+    /* ── Glossary ────────────────────────────────── */
+    .glossary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 24px;
+    }
+
+    .glossary dt {
+      font-weight: 600;
+      font-size: 13.5px;
+      color: var(--ink);
+      margin-top: 14px;
+    }
+
+    .glossary dt:first-child { margin-top: 0; }
+
+    .glossary dd {
+      font-size: 13.5px;
+      color: var(--ink-2);
+      padding-left: 16px;
+      border-left: 2px solid var(--border);
+      margin-top: 3px;
+    }
+
+    /* ── Responsive breakpoints legend ──────────────*/
+    .bp-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .bp-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 14px 16px;
+      text-align: center;
+    }
+
+    .bp-size {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .bp-card--bad   .bp-size { color: var(--critico); }
+    .bp-card--bad2  .bp-size { color: var(--alto);    }
+    .bp-card--good  .bp-size { color: var(--ok);      }
+
+    .bp-label { font-size: 11.5px; color: var(--ink-3); font-weight: 500; }
+    .bp-verdict { font-size: 12px; font-weight: 600; margin-top: 6px; }
+    .bp-card--bad  .bp-verdict { color: var(--critico); }
+    .bp-card--bad2 .bp-verdict { color: var(--alto);    }
+    .bp-card--good .bp-verdict { color: var(--ok);      }
+
+    /* ── Methodology note ────────────────────────── */
+    .method-note {
+      background: rgba(72,38,196,0.05);
+      border: 1px solid rgba(72,38,196,0.15);
+      border-radius: 4px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: var(--ink-2);
+      margin-bottom: 40px;
+      line-height: 1.7;
+    }
+
+    .method-note strong { color: var(--accent); }
+
+    /* ── Footer ──────────────────────────────────── */
+    .report-footer {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      font-size: 12.5px;
+      color: var(--ink-3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* ── Print ───────────────────────────────────── */
+    @media print {
+      body { background: white; }
+      .report-header { margin: 0 0 32px; border-radius: 0; }
+      .finding:hover { box-shadow: none; }
+      .code-block { break-inside: avoid; }
+      .summary-grid { break-inside: avoid; }
+    }
+
+    @media (max-width: 640px) {
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .bp-grid { grid-template-columns: 1fr; }
+      .report-header { padding: 32px 24px 28px; }
+      .report-header::after { display: none; }
+      .action-table { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══ HEADER ══════════════════════════════════════════════ -->
+  <header class="report-header">
+    <p class="header-eyebrow">Informe de auditoría técnica</p>
+    <h1 class="header-title">Mini Service Desk<br><span>Pre-despliegue a Surge.sh</span></h1>
+    <div class="header-meta">
+      <span><strong>Fecha</strong> 2026-09-24</span>
+      <span><strong>Dominio objetivo</strong> servicedesk-grupo-N.surge.sh</span>
+      <span><strong>Rama</strong> feat/fase3-implementacion</span>
+      <span><strong>Metodología</strong> Lectura directa del código fuente</span>
+    </div>
+  </header>
+
+  <!-- ══ NOTA METODOLÓGICA ════════════════════════════════════ -->
+  <div class="method-note">
+    Todo hallazgo de esta auditoría indica el <strong>archivo y número de línea exactos</strong> donde se comprobó.
+    Se distingue siempre entre lo <strong>comprobado en el código</strong> y lo <strong>interpretado</strong>.
+    No se ha modificado ningún archivo para producir este informe.
+  </div>
+
+  <!-- ══ RESUMEN EJECUTIVO ════════════════════════════════════ -->
+  <section class="section">
+    <p class="section-label">Resumen ejecutivo</p>
+    <h2 class="section-title">11 hallazgos en 4 categorías</h2>
+
+    <div class="summary-grid">
+      <div class="summary-card summary-card--critico">
+        <div class="summary-num">3</div>
+        <div class="summary-label">Críticos</div>
+      </div>
+      <div class="summary-card summary-card--alto">
+        <div class="summary-num">3</div>
+        <div class="summary-label">Altos</div>
+      </div>
+      <div class="summary-card summary-card--medio">
+        <div class="summary-num">3</div>
+        <div class="summary-label">Medios</div>
+      </div>
+      <div class="summary-card summary-card--bajo">
+        <div class="summary-num">2</div>
+        <div class="summary-label">Bajos</div>
+      </div>
+    </div>
+
+    <p style="color:var(--ink-2); font-size:14px; max-width:660px; line-height:1.8">
+      La app funciona correctamente en escritorio. Antes de publicar hay que resolver
+      <strong>dos cosas concretas</strong>: crear un <code>.surgeignore</code> que excluya
+      los archivos internos (docs, tests, CLAUDE.md…), y añadir media queries para que
+      la interfaz no rompa en móvil y tablet. El resto son mejoras de calidad, no bloqueantes.
+    </p>
+  </section>
+
+  <!-- ══ ARQUITECTURA ═════════════════════════════════════════ -->
+  <section class="section">
+    <p class="section-label">Arquitectura</p>
+    <h2 class="section-title">Cómo fluye un dato de principio a fin</h2>
+
+    <p style="color:var(--ink-2); font-size:14px; margin-bottom:16px; max-width:660px">
+      La app tiene cuatro páginas HTML independientes. No hay bundler ni servidor:
+      el navegador carga los archivos directamente. El estado se guarda en
+      <strong>localStorage</strong> — el almacén del navegador que persiste entre recargas.
+    </p>
+
+    <div class="dataflow">
+      <div style="line-height:2.2; white-space:pre">
+<span class="node node-green">data/tickets.json</span>  <span class="arrow">──fetch()──►</span>  <span class="node node-purple">state.tickets</span>  <span class="arrow">──render*()──►</span>  <span class="node">DOM</span>
+        <span class="label">+</span>
+<span class="node node-orange">localStorage</span>
+  <span class="label">├── tickets-locales       (tickets creados en el navegador)</span>
+  <span class="label">├── tickets-estado        (estado, historial, resolución)</span>
+  <span class="label">└── triaje-asignaciones   (asignación por persona)</span>
+      </div>
+    </div>
+
+    <h3 style="font-size:14px; font-weight:600; margin:24px 0 10px; color:var(--ink)">Archivos y sus responsabilidades (comprobadas)</h3>
+
+    <div class="file-tree">
+<span class="dim">/</span>
+<span class="ok">├── triaje.html</span>            <span class="dim">← página principal (Bandeja); carga ordenar.js y formato.js</span>
+<span class="ok">├── nuevo-ticket.html</span>      <span class="dim">← formulario de creación; lógica 100 % inline</span>
+<span class="ok">├── detalle-ticket.html</span>    <span class="dim">← detalle + historial; carga formato.js</span>
+<span class="ok">├── cierre-ticket.html</span>     <span class="dim">← formulario de cierre; lógica 100 % inline</span>
+<span class="ok">├── css/styles.css</span>         <span class="dim">← todos los estilos; cero media queries</span>
+<span class="ok">├── data/tickets.json</span>      <span class="dim">← 60 tickets ficticios; sin datos reales</span>
+<span class="ok">├── js/utils/ordenar.js</span>    <span class="dim">← ordenarPorPrioridad(); usada por triaje.html</span>
+<span class="ok">├── js/utils/formato.js</span>    <span class="dim">← formatearFecha(); usada por triaje.html y detalle-ticket.html</span>
+<span class="warn">├── js/utils/filtrar.js</span>    <span class="dim">← filtrarTickets(); solo la usan los tests de Node.js</span>
+<span class="dead">├── js/app.js</span>              <span class="dim">← ⚠ HUÉRFANO: no lo carga ningún HTML</span>
+<span class="dim">└── js/components/</span>         <span class="dim">← carpeta vacía (solo README.md, no hay archivos .js)</span>
+    </div>
+  </section>
+
+  <!-- ══ SEGURIDAD ════════════════════════════════════════════ -->
+  <section class="section">
+    <p class="section-label">Seguridad</p>
+    <h2 class="section-title">Lo que se publica y lo que se protege</h2>
+
+    <!-- OK: Sin credenciales -->
+    <div class="finding finding--ok">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">SEC-00</span>
+          <span class="finding-title">Sin credenciales, API keys ni datos personales reales</span>
+        </div>
+        <span class="badge badge-ok">Verificado ✓</span>
+      </div>
+      <p class="finding-body">
+        Leídos todos los archivos .html, .js, .json y CLAUDE.md. No se encontró ninguna API key,
+        contraseña, token, correo electrónico real ni dato de identificación personal.
+        Los 60 tickets usan roles ficticios ("Jefe de turno", "Guardia de seguridad")
+        y nombres de zona inventados.
+      </p>
+    </div>
+
+    <!-- OK: XSS -->
+    <div class="finding finding--ok">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">SEC-01</span>
+          <span class="finding-title">Protección XSS correcta y consistente</span>
+        </div>
+        <span class="badge badge-ok">Verificado ✓</span>
+      </div>
+      <p class="finding-body">
+        Las cuatro páginas definen la misma función <code>esc()</code> que escapa los cinco
+        caracteres HTML especiales antes de insertar texto externo en <code>innerHTML</code>.
+        Los campos asignados con <code>textContent</code> son intrínsecamente seguros
+        (el navegador no interpreta etiquetas en ellos).
+      </p>
+      <div class="code-block">
+        <span class="code-block__label">triaje.html · l.166</span>
+        <pre><span class="keyword">function</span> <span class="prop">esc</span>(str) {
+  <span class="keyword">return</span> String(str)
+    .replace(<span class="string">/&/g</span>, <span class="string">'&amp;amp;'</span>).replace(<span class="string">/</span><span class="string">&lt;/g</span>, <span class="string">'&amp;lt;'</span>)
+    .replace(<span class="string">/>/g</span>, <span class="string">'&amp;gt;'</span>).replace(<span class="string">/"/g</span>, <span class="string">'&amp;quot;'</span>).replace(<span class="string">/'/g</span>, <span class="string">'&amp;#39;'</span>);
+}
+<span class="comment">// Se usa en cada punto donde datos externos entran en innerHTML</span></pre>
+      </div>
+      <span class="finding-ref">Verificado en: triaje.html l.166, cierre-ticket.html l.148, detalle-ticket.html l.108</span>
+    </div>
+
+    <!-- ALTO: Archivos internos -->
+    <div class="finding finding--alto">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">S1</span>
+          <span class="finding-title">Archivos internos se publicarían sin .surgeignore</span>
+        </div>
+        <span class="badge badge-alto">Alto</span>
+      </div>
+      <p class="finding-body">
+        Surge.sh sirve <em>todo el directorio</em> tal cual. Sin un archivo <code>.surgeignore</code>,
+        cualquier visitante puede acceder a la URL de <code>CLAUDE.md</code>, <code>docs/spec.md</code>,
+        los planes del agente en <code>.superpowers/</code>, etc.
+        Ninguno contiene datos secretos, pero revelan el proceso interno de desarrollo con IA
+        y la estructura de la formación.
+      </p>
+      <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:6px; font-family:'JetBrains Mono',monospace; font-size:12px">
+        <span style="background:var(--alto-bg);color:var(--alto);padding:3px 8px;border-radius:3px">CLAUDE.md</span>
+        <span style="background:var(--alto-bg);color:var(--alto);padding:3px 8px;border-radius:3px">README.md</span>
+        <span style="background:var(--alto-bg);color:var(--alto);padding:3px 8px;border-radius:3px">docs/</span>
+        <span style="background:var(--alto-bg);color:var(--alto);padding:3px 8px;border-radius:3px">.superpowers/</span>
+        <span style="background:var(--alto-bg);color:var(--alto);padding:3px 8px;border-radius:3px">tests/</span>
+        <span style="background:var(--alto-bg);color:var(--alto);padding:3px 8px;border-radius:3px">assets/</span>
+        <span style="background:var(--alto-bg);color:var(--alto);padding:3px 8px;border-radius:3px">js/app.js</span>
+        <span style="background:var(--alto-bg);color:var(--alto);padding:3px 8px;border-radius:3px">js/utils/filtrar.js</span>
+      </div>
+      <span class="finding-ref">Corrección: crear .surgeignore en la raíz (ver sección de arreglos)</span>
+    </div>
+
+    <!-- BAJO: CSS injection -->
+    <div class="finding finding--bajo">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">S2</span>
+          <span class="finding-title">Inyección CSS teórica via localStorage</span>
+        </div>
+        <span class="badge badge-bajo">Bajo</span>
+      </div>
+      <p class="finding-body">
+        En <code>triaje.html</code> l.332, la variable <code>asigColor</code> se usa en un
+        atributo <code>style</code> inline sin validar su formato. Si alguien manipulase
+        manualmente el localStorage del navegador, podría introducir un valor CSS arbitrario.
+        El impacto es solo estético — no ejecuta JavaScript. Requiere acceso físico al
+        navegador ya autenticado.
+      </p>
+      <div class="code-block">
+        <span class="code-block__label">triaje.html · l.332</span>
+        <pre><span class="comment">// Actual — asigColor viene de localStorage sin validar formato</span>
+<span class="keyword">const</span> <span class="prop">asigColor</span> = COL_PERSONA[asig] || <span class="string">'var(--borde)'</span>;
+<span class="comment">// ... luego en innerHTML:</span>
+<span class="string">`style="background:${asigColor}"`</span>
+
+<span class="comment">// Corrección mínima:</span>
+<span class="keyword">const</span> <span class="prop">SAFE_COLORS</span> = <span class="keyword">new</span> Set([<span class="string">'#f0a431'</span>, <span class="string">'#7fd1c1'</span>, <span class="string">'#f2a7b8'</span>]);
+<span class="keyword">const</span> <span class="prop">asigColor</span> = SAFE_COLORS.has(COL_PERSONA[asig])
+  ? COL_PERSONA[asig] : <span class="string">'var(--borde)'</span>;</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ RESPONSIVE ═══════════════════════════════════════════ -->
+  <section class="section">
+    <p class="section-label">Diseño responsive</p>
+    <h2 class="section-title">Cero media queries — layout roto en móvil y tablet</h2>
+
+    <p style="color:var(--ink-2); font-size:14px; margin-bottom:16px; max-width:660px; line-height:1.8">
+      Una <strong>media query</strong> es una regla CSS que aplica estilos solo cuando la pantalla
+      alcanza cierto ancho. Sin ellas, el diseño es fijo para escritorio.
+      Búsqueda verificada en <code>css/styles.css</code>: <strong>ninguna ocurrencia de <code>@media</code></strong>.
+    </p>
+
+    <div class="bp-grid">
+      <div class="bp-card bp-card--bad">
+        <div class="bp-size">375 px</div>
+        <div class="bp-label">iPhone SE / móvil estándar</div>
+        <div class="bp-verdict">Layout roto</div>
+      </div>
+      <div class="bp-card bp-card--bad2">
+        <div class="bp-size">768 px</div>
+        <div class="bp-label">iPad / tablet</div>
+        <div class="bp-verdict">Tabla desborda</div>
+      </div>
+      <div class="bp-card bp-card--good">
+        <div class="bp-size">1440 px</div>
+        <div class="bp-label">Escritorio estándar</div>
+        <div class="bp-verdict">Funciona correctamente</div>
+      </div>
+    </div>
+
+    <!-- R1: Sin media queries -->
+    <div class="finding finding--critico">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">R1</span>
+          <span class="finding-title">Sin ninguna media query en la hoja de estilos</span>
+        </div>
+        <span class="badge badge-critico">Crítico</span>
+      </div>
+      <p class="finding-body">
+        La búsqueda de <code>@media</code> en <code>css/styles.css</code> no devuelve
+        ningún resultado. Todas las dimensiones son fijas para escritorio. En dispositivos
+        menores de ~900 px, los layouts de grid y el sidebar fixed rompen la interfaz.
+      </p>
+      <span class="finding-ref">css/styles.css — búsqueda exhaustiva confirmada</span>
+    </div>
+
+    <!-- R2: Tabla desbordada -->
+    <div class="finding finding--critico">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">R2</span>
+          <span class="finding-title">Tabla necesita ~784 px mínimo; en móvil queda cortada silenciosamente</span>
+        </div>
+        <span class="badge badge-critico">Crítico</span>
+      </div>
+      <p class="finding-body">
+        La tabla de <code>triaje.html</code> tiene seis columnas con anchos fijos declarados
+        en atributos <code>style</code>: 96 + 90 + 260 + 120 + 88 + 130 = ~784 px mínimos.
+        El contenedor usa <code>overflow: clip</code> en lugar de <code>overflow: auto</code>,
+        lo que corta el contenido desbordado sin mostrar scrollbar. El usuario no puede
+        ver las columnas derechas ni sabe que existen.
+      </p>
+      <span class="finding-ref">triaje.html l.59–68 · css/styles.css l.549 (<code>overflow: clip</code>)</span>
+    </div>
+
+    <!-- R3: Sidebar fixed -->
+    <div class="finding finding--critico">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">R3</span>
+          <span class="finding-title">Sidebar fixed de 232 px deja 143 px al contenido en un móvil de 375 px</span>
+        </div>
+        <span class="badge badge-critico">Crítico</span>
+      </div>
+      <p class="finding-body">
+        El sidebar tiene <code>position: fixed; width: 232px</code> y el contenido tiene
+        <code>margin-left: 232px</code>. En un iPhone SE (375 px), el área disponible
+        para toda la tabla, tarjetas y formularios es de 375 − 232 = <strong>143 px</strong>.
+        Ningún componente cabe en ese ancho.
+      </p>
+      <span class="finding-ref">css/styles.css l.255–267 (<code>.sidebar-triaje</code>)</span>
+    </div>
+
+    <!-- R4: form-layout -->
+    <div class="finding finding--alto">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">R4</span>
+          <span class="finding-title">Grids de formulario no colapsan a una columna en móvil</span>
+        </div>
+        <span class="badge badge-alto">Alto</span>
+      </div>
+      <p class="finding-body">
+        <code>.form-layout</code> (usado en <code>nuevo-ticket.html</code>,
+        <code>cierre-ticket.html</code> y <code>detalle-ticket.html</code>) declara
+        <code>grid-template-columns: 1fr 280px</code> sin regla responsive.
+        En móvil, el aside de 280 px se comprime junto al formulario principal
+        dejando solo ~95 px para los campos de texto.
+      </p>
+      <span class="finding-ref">css/styles.css l.828 (<code>.form-layout</code>)</span>
+    </div>
+
+    <!-- R5: cards-resumen -->
+    <div class="finding finding--alto">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">R5</span>
+          <span class="finding-title">Grid de 3 cards no colapsa — ~47 px por card en móvil</span>
+        </div>
+        <span class="badge badge-alto">Alto</span>
+      </div>
+      <p class="finding-body">
+        <code>.cards-resumen</code> usa <code>grid-template-columns: repeat(3, 1fr)</code>.
+        Con el sidebar activo en móvil, el espacio disponible (143 px) dividido en 3
+        da ~47 px por tarjeta — completamente ilegible.
+      </p>
+      <span class="finding-ref">css/styles.css l.413 (<code>.cards-resumen</code>)</span>
+    </div>
+
+    <!-- R6: panel inline -->
+    <div class="finding finding--medio">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">R6</span>
+          <span class="finding-title">Panel inline de 320 px comprime la tabla en tablet</span>
+        </div>
+        <span class="badge badge-medio">Medio</span>
+      </div>
+      <p class="finding-body">
+        Cuando se selecciona un ticket, el panel lateral aparece con
+        <code>width: 320px; flex-shrink: 0</code>. En tablet (768 px − 232 px sidebar = 536 px),
+        la tabla más el panel suman más del viewport disponible.
+      </p>
+      <span class="finding-ref">css/styles.css l.651 (<code>.panel-detalle</code>)</span>
+    </div>
+  </section>
+
+  <!-- ══ DESPLIEGUE ════════════════════════════════════════════ -->
+  <section class="section">
+    <p class="section-label">Despliegue</p>
+    <h2 class="section-title">Qué funciona en producción y qué no</h2>
+
+    <!-- OK: fetch -->
+    <div class="finding finding--ok">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">DEP-00</span>
+          <span class="finding-title">Ruta de <code>data/tickets.json</code> correcta para Surge.sh</span>
+        </div>
+        <span class="badge badge-ok">Verificado ✓</span>
+      </div>
+      <p class="finding-body">
+        Las cuatro páginas usan la ruta relativa <code>'data/tickets.json'</code>.
+        En surge, resuelve a
+        <code>https://servicedesk-grupo-N.surge.sh/data/tickets.json</code>,
+        un archivo estático servido directamente. Funciona sin cambios.
+      </p>
+      <span class="finding-ref">triaje.html l.460 · detalle-ticket.html l.262 · cierre-ticket.html l.235</span>
+    </div>
+
+    <!-- OK: localStorage -->
+    <div class="finding finding--ok">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">DEP-01</span>
+          <span class="finding-title">localStorage y navegación entre páginas funcionan en producción</span>
+        </div>
+        <span class="badge badge-ok">Verificado ✓</span>
+      </div>
+      <p class="finding-body">
+        Los tres almacenes de localStorage (<code>tickets-locales</code>,
+        <code>tickets-estado</code>, <code>triaje-asignaciones</code>)
+        son datos del navegador del usuario — Surge no los afecta.
+        Los enlaces internos usan rutas relativas que resuelven correctamente
+        en la raíz del dominio de Surge.
+      </p>
+    </div>
+
+    <!-- MEDIO: app.js huérfano -->
+    <div class="finding finding--medio">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">D1</span>
+          <span class="finding-title"><code>js/app.js</code> es código muerto — ningún HTML lo carga</span>
+        </div>
+        <span class="badge badge-medio">Medio</span>
+      </div>
+      <p class="finding-body">
+        Comprobados todos los atributos <code>src</code> de etiquetas <code>&lt;script&gt;</code>
+        en los cuatro HTML: ninguno referencia <code>js/app.js</code>.
+        El archivo contiene un <code>fetch</code> que llama a <code>renderizarTabla()</code>
+        y <code>renderizarFiltros()</code>, funciones que no existen — si alguien lo cargara,
+        lanzaría un <code>ReferenceError</code> inmediato.
+        No afecta al usuario final, pero es confuso para quien lea el repositorio.
+      </p>
+      <span class="finding-ref">js/app.js l.32–33 — ningún &lt;script src&gt; lo referencia</span>
+    </div>
+
+    <!-- MEDIO: filtrar.js -->
+    <div class="finding finding--medio">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">D2</span>
+          <span class="finding-title"><code>js/utils/filtrar.js</code> no está conectado a ninguna página</span>
+        </div>
+        <span class="badge badge-medio">Medio</span>
+      </div>
+      <p class="finding-body">
+        Solo la importan los tests de Node.js (<code>tests/utils.test.js l.2</code>).
+        El filtrado de la bandeja se realiza inline dentro del <code>&lt;script&gt;</code>
+        de <code>triaje.html</code> con <code>Array.filter()</code> directamente,
+        sin llamar a <code>filtrarTickets()</code>.
+      </p>
+      <span class="finding-ref">tests/utils.test.js l.2 · triaje.html l.191–202</span>
+    </div>
+
+    <!-- BAJO: README desactualizado -->
+    <div class="finding finding--bajo">
+      <div class="finding-header">
+        <div>
+          <span class="finding-id">D3</span>
+          <span class="finding-title"><code>README.md</code> todavía referencia <code>index.html</code> eliminado</span>
+        </div>
+        <span class="badge badge-bajo">Bajo</span>
+      </div>
+      <p class="finding-body">
+        El README indica <code>index.html</code> como punto de entrada principal
+        (líneas 29–30 y 47–48). Ese archivo fue eliminado; la página principal
+        es ahora <code>triaje.html</code>. No afecta la app en producción, pero
+        confunde a quien lea el repositorio publicado.
+      </p>
+      <span class="finding-ref">README.md l.29–30, l.47–48</span>
+    </div>
+  </section>
+
+  <!-- ══ ARREGLOS RÁPIDOS ══════════════════════════════════════ -->
+  <section class="section">
+    <p class="section-label">Arreglos rápidos</p>
+    <h2 class="section-title">Qué hacer antes de publicar</h2>
+
+    <table class="action-table">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th style="width:90px">Severidad</th>
+          <th>Acción</th>
+          <th>Archivo</th>
+          <th style="width:90px">Resuelve</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="action-num">1</span></td>
+          <td><span class="badge badge-alto">Alto</span></td>
+          <td>Crear <code>.surgeignore</code> en la raíz del proyecto</td>
+          <td><code>.surgeignore</code> (nuevo)</td>
+          <td><span class="badge badge-alto">S1</span></td>
+        </tr>
+        <tr>
+          <td><span class="action-num">2</span></td>
+          <td><span class="badge badge-critico">Crítico</span></td>
+          <td>Añadir media queries al final de <code>styles.css</code></td>
+          <td><code>css/styles.css</code></td>
+          <td><span class="badge badge-critico">R1 R2 R3 R4 R5</span></td>
+        </tr>
+        <tr>
+          <td><span class="action-num">3</span></td>
+          <td><span class="badge badge-medio">Medio</span></td>
+          <td>Actualizar <code>README.md</code>: reemplazar referencias a <code>index.html</code> por <code>triaje.html</code></td>
+          <td><code>README.md</code></td>
+          <td><span class="badge badge-bajo">D3</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="color:var(--ink-3); font-size:12.5px; margin-top:10px">
+      Los hallazgos D1, D2, R6 y S2 son mejoras de calidad que no bloquean el despliegue y pueden quedar en el backlog.
+    </p>
+
+    <!-- .surgeignore -->
+    <h3 style="font-size:16px; font-weight:600; margin:32px 0 10px">Arreglo 1 — Archivo <code>.surgeignore</code></h3>
+    <p style="color:var(--ink-2); font-size:14px; margin-bottom:12px">
+      Crear en la raíz del proyecto. Surge lo lee antes de publicar y excluye los paths listados
+      (misma sintaxis que <code>.gitignore</code>).
+    </p>
+
+    <div class="code-block">
+      <span class="code-block__label">.surgeignore</span>
+      <pre><span class="comment"># Instrucciones internas de Claude Code</span>
+CLAUDE.md
+
+<span class="comment"># Documentación interna del proyecto</span>
+README.md
+docs/
+
+<span class="comment"># Artefactos internos del agente de IA</span>
+.superpowers/
+
+<span class="comment"># Tests de Node.js (no funcionan en el navegador)</span>
+tests/
+
+<span class="comment"># Imágenes de referencia (no son parte de la app)</span>
+assets/
+
+<span class="comment"># Scripts no conectados a ningún HTML</span>
+js/app.js
+js/utils/filtrar.js
+
+<span class="comment"># READMEs internos de carpetas</span>
+js/components/README.md
+js/utils/README.md
+
+<span class="comment"># Control de versiones</span>
+.git/</pre>
+    </div>
+
+    <!-- Media queries -->
+    <h3 style="font-size:16px; font-weight:600; margin:32px 0 10px">Arreglo 2 — Media queries (añadir al final de <code>css/styles.css</code>)</h3>
+    <p style="color:var(--ink-2); font-size:14px; margin-bottom:12px">
+      Mínimo de emergencia para que la app no rompa en móvil. No es el diseño responsive
+      completo — oculta el sidebar en pantallas pequeñas y colapsa los grids a una columna.
+    </p>
+
+    <div class="code-block">
+      <span class="code-block__label">css/styles.css — añadir al final</span>
+      <pre><span class="comment">/* ══ RESPONSIVE ════════════════════════════════ */</span>
+
+<span class="comment">/* Tablet (≤ 900 px): ocultar sidebar, scroll horizontal en tabla */</span>
+<span class="selector">@media (max-width: 900px)</span> {
+  <span class="prop">.sidebar-triaje</span>    { <span class="keyword">display</span>: <span class="value">none</span>; }
+  <span class="prop">.triaje-contenido</span>  { <span class="keyword">margin-left</span>: <span class="value">0</span>; }
+  <span class="prop">.cards-resumen</span>     { <span class="keyword">grid-template-columns</span>: <span class="value">1fr 1fr</span>; }
+  <span class="prop">.panel-detalle</span>     { <span class="keyword">display</span>: <span class="value">none</span>; }
+  <span class="prop">.contenedor-tabla</span>  { <span class="keyword">overflow-x</span>: <span class="value">auto</span>; } <span class="comment">/* scroll en vez de clip */</span>
+}
+
+<span class="comment">/* Móvil (≤ 600 px): colapsar todos los grids a una columna */</span>
+<span class="selector">@media (max-width: 600px)</span> {
+  <span class="prop">.cards-resumen</span>     { <span class="keyword">grid-template-columns</span>: <span class="value">1fr</span>; }
+  <span class="prop">.form-layout</span>       { <span class="keyword">grid-template-columns</span>: <span class="value">1fr</span>; }
+  <span class="prop">.detalle-layout</span>    { <span class="keyword">grid-template-columns</span>: <span class="value">1fr</span>; }
+
+  <span class="prop">.header-busqueda</span>   { <span class="keyword">width</span>: <span class="value">130px</span>; }
+  <span class="prop">.header-busqueda:focus</span> { <span class="keyword">width</span>: <span class="value">160px</span>; }
+
+  <span class="prop">.pagina-contenido</span>  { <span class="keyword">padding</span>: <span class="value">18px 16px</span>; }
+}</pre>
+    </div>
+  </section>
+
+  <!-- ══ GLOSARIO ═════════════════════════════════════════════ -->
+  <section class="section">
+    <p class="section-label">Glosario</p>
+    <h2 class="section-title">Conceptos técnicos de este informe</h2>
+
+    <div class="glossary">
+      <dt>XSS (Cross-Site Scripting)</dt>
+      <dd>Ataque en que texto malicioso introducido por un usuario se ejecuta como código HTML/JavaScript al pintarse en la pantalla. Se previene escapando los caracteres especiales antes de insertarlos en el DOM.</dd>
+
+      <dt>localStorage</dt>
+      <dd>Almacén de datos del navegador, por dominio, persistente entre recargas. No se envía al servidor. Todas las mutaciones de estado de esta app (cambios de estado, asignaciones, tickets nuevos) se guardan aquí.</dd>
+
+      <dt>innerHTML vs textContent</dt>
+      <dd><code>innerHTML</code> interpreta el contenido como HTML — peligroso si recibe texto sin escapar. <code>textContent</code> inserta texto literal sin interpretar etiquetas — siempre seguro.</dd>
+
+      <dt>fetch()</dt>
+      <dd>Función de JavaScript que hace peticiones HTTP. Requiere que el archivo esté servido desde un servidor, no abierto como <code>file://</code> en el disco local.</dd>
+
+      <dt>Media query</dt>
+      <dd>Regla CSS que aplica estilos solo cuando la pantalla supera o no llega a cierto ancho. Base del diseño responsive. Ejemplo: <code>@media (max-width: 600px) { ... }</code></dd>
+
+      <dt>overflow: clip</dt>
+      <dd>Valor CSS que corta el contenido que desborda el contenedor, sin mostrar scrollbar. En esta app, oculta silenciosamente las columnas derechas de la tabla en pantallas pequeñas.</dd>
+
+      <dt>Surge.sh</dt>
+      <dd>Plataforma de alojamiento de webs estáticas. Sirve todos los archivos del directorio publicado tal cual, sin backend ni base de datos. El archivo <code>.surgeignore</code> le indica qué excluir.</dd>
+
+      <dt>Código huérfano</dt>
+      <dd>Archivo o función que existe en el repositorio pero que ninguna otra parte del código carga o llama. No afecta al usuario final, pero confunde a quien lee el proyecto.</dd>
+    </div>
+  </section>
+
+  <!-- ══ FOOTER ════════════════════════════════════════════════ -->
+  <footer class="report-footer">
+    <span>Mini Service Desk — Auditoría pre-despliegue · 2026-09-24</span>
+    <span>Metodología: lectura directa del código fuente · Sin modificaciones</span>
+  </footer>
+
+</div>
+</body>
+</html>

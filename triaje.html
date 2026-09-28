@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bandeja — Mini Service Desk</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="header-app">
+    <span class="header-logo">
+      Mini Service Desk
+      <span class="logo-sub">Seguridad física</span>
+    </span>
+    <div class="header-spacer"></div>
+    <input id="buscador" class="header-busqueda" type="search"
+           placeholder="Buscar ID o título…" autocomplete="off" />
+    <a href="nuevo-ticket.html" class="btn btn-verde btn-sm" style="margin-left:10px">+ Nuevo ticket</a>
+    <span class="operador-badge">JF</span>
+  </header>
+
+  <div class="triaje-wrapper">
+
+    <!-- Sidebar izquierdo -->
+    <aside class="sidebar-triaje" id="sidebar-triaje">
+      <!-- JS renderizado -->
+    </aside>
+
+    <!-- Contenido principal -->
+    <div class="triaje-contenido">
+
+      <!-- Cabecera -->
+      <div class="bandeja-cabecera">
+        <span class="bandeja-titulo">Bandeja de incidencias</span>
+        <span class="bandeja-subtitulo" id="subtitulo-total"></span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs" id="tabs-contenedor">
+        <!-- JS renderizado -->
+      </div>
+
+      <!-- Cards resumen -->
+      <div class="cards-resumen" id="cards-resumen">
+        <!-- JS renderizado -->
+      </div>
+
+      <!-- Filtro de prioridad -->
+      <div class="barra-filtros" id="filtros-prioridad-triaje" style="margin-bottom:8px">
+        <!-- JS renderizado -->
+      </div>
+
+      <!-- Tabla + panel inline -->
+      <div class="triaje-tabla-wrapper">
+        <div class="triaje-tabla-area">
+          <div class="contenedor-tabla">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:96px">Criticidad</th>
+                  <th style="width:90px">ID</th>
+                  <th>Título</th>
+                  <th style="width:120px">Zona</th>
+                  <th style="width:88px">Fecha</th>
+                  <th style="width:130px">Asignado</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-triaje"></tbody>
+            </table>
+            <div id="estado-vacio">
+              <span class="icono-vacio">◎</span>
+              <span class="texto-vacio">Sin resultados para los filtros activos.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel de detalle inline -->
+        <div class="panel-detalle oculto" id="panel-detalle">
+          <div class="panel-detalle__cabecera">
+            <span class="panel-detalle__id" id="pd-id"></span>
+            <button class="panel-cerrar" id="btn-panel-cerrar" title="Cerrar panel">✕</button>
+          </div>
+          <div class="panel-detalle__cuerpo">
+            <div class="flex gap-10 items-center">
+              <span id="pd-badge-pri" class="badge"></span>
+              <span id="pd-badge-est" class="badge"></span>
+            </div>
+            <p class="panel-detalle__titulo" id="pd-titulo"></p>
+            <p class="panel-detalle__desc" id="pd-desc"></p>
+            <div class="panel-campo">
+              <span class="panel-campo__etiqueta">Zona</span>
+              <span class="panel-campo__valor" id="pd-zona"></span>
+            </div>
+            <div class="panel-campo">
+              <span class="panel-campo__etiqueta">Fecha</span>
+              <span class="panel-campo__valor" id="pd-fecha"></span>
+            </div>
+            <div class="panel-campo">
+              <span class="panel-campo__etiqueta">Sistema afectado</span>
+              <span class="panel-campo__valor" id="pd-sistema"></span>
+            </div>
+            <div class="panel-campo">
+              <span class="panel-campo__etiqueta">Categoría</span>
+              <span id="pd-cat"></span>
+            </div>
+          </div>
+          <div class="panel-detalle__acciones">
+            <div class="panel-asignar">
+              <select id="pd-asignar" class="campo-select" style="margin:0;width:auto;flex:1">
+                <option value="">Sin asignar</option>
+                <option value="jf">J. Ferrer (yo)</option>
+                <option value="sr">S. Roldán</option>
+                <option value="mp">M. Peña</option>
+              </select>
+              <button id="btn-asignar" class="btn btn-oscuro btn-sm">Asignar</button>
+            </div>
+            <a id="btn-ver-detalle" href="#" class="btn btn-primario btn-sm w-full"
+               style="justify-content:center">Ver detalle completo</a>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.triaje-contenido -->
+  </div><!-- /.triaje-wrapper -->
+
+  <script src="js/utils/ordenar.js"></script>
+  <script src="js/utils/formato.js"></script>
+  <script>
+    // ── Constantes ────────────────────────────────────────────────
+    const PERSONAS    = { '': 'Sin asignar', jf: 'J. Ferrer (yo)', sr: 'S. Roldán', mp: 'M. Peña' };
+    const COL_PERSONA = { jf: '#f0a431', sr: '#7fd1c1', mp: '#f2a7b8' };
+    const YO          = 'jf';
+
+    const CATEGORIAS = ['incidente-seguridad','fallo-tecnico','provisioning','configuracion'];
+    const COL_CAT    = {
+      'incidente-seguridad': 'var(--rojo)',
+      'fallo-tecnico':       'var(--naranja)',
+      'provisioning':        'var(--azul)',
+      'configuracion':       'var(--verde)',
+    };
+
+    const TABS = [
+      { id: 'abiertas',  label: 'Abiertas'     },
+      { id: 'sin',       label: 'Sin asignar'   },
+      { id: 'mias',      label: 'Mis tickets'   },
+      { id: 'cerradas',  label: 'Cerradas'      },
+      { id: 'todas',     label: 'Todas'         },
+    ];
+
+    const PRIORIDADES = ['alta', 'media', 'baja'];
+
+    // ── Estado ────────────────────────────────────────────────────
+    const state = {
+      tab:             'abiertas',
+      filtroCat:       null,
+      filtroPrioridad: [],
+      busqueda:        '',
+      seleccionado:    null,   // ticket id
+      tickets:         [],
+      asignaciones:    {},
+      estados:         {},
+    };
+
+    // ── Helpers ───────────────────────────────────────────────────
+    function esc(str) {
+      return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    function estadoTicket(t) {
+      return (state.estados[t.id] && state.estados[t.id].estado) || t.estado;
+    }
+
+    function asignadoTicket(t) {
+      return state.asignaciones[t.id] || '';
+    }
+
+    // Tickets según tab activo (sin filtros adicionales, para contar)
+    function ticketsTab(tabId) {
+      const ts = state.tickets;
+      if (tabId === 'abiertas')  return ts.filter(t => estadoTicket(t) !== 'cerrado');
+      if (tabId === 'sin')       return ts.filter(t => !asignadoTicket(t) && estadoTicket(t) !== 'cerrado');
+      if (tabId === 'mias')      return ts.filter(t => asignadoTicket(t) === YO && estadoTicket(t) !== 'cerrado');
+      if (tabId === 'cerradas')  return ts.filter(t => estadoTicket(t) === 'cerrado');
+      return ts;
+    }
+
+    // Tickets visibles (tab + cat + prioridad + búsqueda)
+    function ticketsVista() {
+      let ts = ticketsTab(state.tab);
+      if (state.filtroCat)
+        ts = ts.filter(t => t.categoria === state.filtroCat);
+      if (state.filtroPrioridad.length)
+        ts = ts.filter(t => state.filtroPrioridad.includes(t.prioridad));
+      if (state.busqueda) {
+        const q = state.busqueda.toLowerCase();
+        ts = ts.filter(t =>
+          t.titulo.toLowerCase().includes(q) || t.id.toLowerCase().includes(q));
+      }
+      return ordenarPorPrioridad(ts);
+    }
+
+    // ── Render ────────────────────────────────────────────────────
+    function render() {
+      renderSidebar();
+      renderTabs();
+      renderCards();
+      renderFiltroPrioridad();
+      renderTabla();
+      renderPanel();
+      // Subtítulo
+      const tot = ticketsTab(state.tab).length;
+      document.getElementById('subtitulo-total').textContent =
+        tot + ' ticket' + (tot !== 1 ? 's' : '');
+    }
+
+    function renderSidebar() {
+      const el = document.getElementById('sidebar-triaje');
+      const abiertasTodos = state.tickets.filter(t => estadoTicket(t) !== 'cerrado');
+
+      const secCats = CATEGORIAS.map(cat => {
+        const cnt = abiertasTodos.filter(t => t.categoria === cat).length;
+        const activo = state.filtroCat === cat ? ' activo' : '';
+        return `<div class="sidebar-item${activo}" data-cat="${esc(cat)}">
+          <span class="sidebar-dot" style="background:${COL_CAT[cat]}"></span>
+          <span class="sidebar-item-nombre">${esc(cat)}</span>
+          <span class="sidebar-count">${cnt}</span>
+        </div>`;
+      }).join('');
+
+      const secPersonas = Object.keys(PERSONAS).map(key => {
+        if (key === '') {
+          const cnt = abiertasTodos.filter(t => !asignadoTicket(t)).length;
+          return `<div class="sidebar-item" data-persona="${esc(key)}">
+            <span class="sidebar-dot" style="background:var(--borde)"></span>
+            <span class="sidebar-item-nombre">Sin asignar</span>
+            <span class="sidebar-count">${cnt}</span>
+          </div>`;
+        }
+        const cnt = abiertasTodos.filter(t => asignadoTicket(t) === key).length;
+        const ini = PERSONAS[key].slice(0,2).toUpperCase();
+        return `<div class="sidebar-item" data-persona="${esc(key)}">
+          <span class="sidebar-avatar" style="background:${COL_PERSONA[key]}">${esc(ini)}</span>
+          <span class="sidebar-item-nombre">${esc(PERSONAS[key])}</span>
+          <span class="sidebar-count">${cnt}</span>
+        </div>`;
+      }).join('');
+
+      el.innerHTML = `
+        <div class="sidebar-seccion">
+          <div class="sidebar-seccion-titulo">Categorías</div>
+          ${secCats}
+          ${state.filtroCat ? `<div class="sidebar-item" data-cat-reset style="opacity:0.7">
+            <span class="sidebar-item-nombre" style="color:rgba(255,255,255,0.5)">✕ Limpiar filtro</span>
+          </div>` : ''}
+        </div>
+        <div class="sidebar-seccion">
+          <div class="sidebar-seccion-titulo">Equipo</div>
+          ${secPersonas}
+        </div>`;
+    }
+
+    function renderTabs() {
+      const el = document.getElementById('tabs-contenedor');
+      el.innerHTML = TABS.map(tab => {
+        const cnt = ticketsTab(tab.id).length;
+        const activo = state.tab === tab.id ? ' activo' : '';
+        return `<div class="tab${activo}" data-tab="${esc(tab.id)}">
+          ${esc(tab.label)} <span style="font-size:10px;opacity:0.6;margin-left:4px">${cnt}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function renderCards() {
+      const base = ticketsTab(state.tab);
+      const el = document.getElementById('cards-resumen');
+      el.innerHTML = PRIORIDADES.map(pri => {
+        const cnt = base.filter(t => t.prioridad === pri).length;
+        return `<div class="card-resumen card-resumen--${esc(pri)}">
+          <div class="card-resumen__acento"></div>
+          <div>
+            <div class="card-resumen__num">${cnt}</div>
+            <div class="card-resumen__label">${esc(pri)}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderFiltroPrioridad() {
+      const el = document.getElementById('filtros-prioridad-triaje');
+      const chips = PRIORIDADES.map(pri => {
+        const activo = state.filtroPrioridad.includes(pri) ? ' chip-activo' : '';
+        return `<button class="chip${activo}" data-pri="${esc(pri)}">${esc(pri)}</button>`;
+      }).join('');
+      el.innerHTML = `
+        <div class="grupo-filtro">
+          <span class="filtro-label">Prioridad:</span>
+          ${chips}
+        </div>`;
+    }
+
+    function renderTabla() {
+      const tbody = document.getElementById('tabla-triaje');
+      const vacio = document.getElementById('estado-vacio');
+      const ts = ticketsVista();
+
+      if (ts.length === 0) {
+        tbody.innerHTML = '';
+        vacio.classList.add('visible');
+        return;
+      }
+      vacio.classList.remove('visible');
+
+      tbody.innerHTML = ts.map(t => {
+        const est = estadoTicket(t);
+        const asig = asignadoTicket(t);
+        const asigLabel = PERSONAS[asig] || 'Sin asignar';
+        const asigColor = COL_PERSONA[asig] || 'var(--borde)';
+        const asigIni = asig ? asigLabel.slice(0,2).toUpperCase() : '—';
+        const sel = state.seleccionado === t.id ? ' seleccionado' : '';
+        return `<tr class="clickable${sel}" data-id="${esc(t.id)}">
+          <td><span class="badge badge-${esc(t.prioridad)}">${esc(t.prioridad)}</span></td>
+          <td class="col-id">${esc(t.id)}</td>
+          <td class="col-titulo" title="${esc(t.titulo)}">${esc(t.titulo)}</td>
+          <td>${esc(t.zona)}</td>
+          <td>${esc(formatearFecha(t.fecha))}</td>
+          <td>
+            ${asig
+              ? `<span style="display:inline-flex;align-items:center;gap:5px">
+                  <span style="width:18px;height:18px;border-radius:50%;background:${asigColor};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#26313d">${esc(asigIni)}</span>
+                  <span style="font-size:12.5px">${esc(asigLabel)}</span>
+                </span>`
+              : `<span style="font-size:12px;color:var(--texto-sec)">Sin asignar</span>`
+            }
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderPanel() {
+      const panel = document.getElementById('panel-detalle');
+      if (!state.seleccionado) {
+        panel.classList.add('oculto');
+        return;
+      }
+      const t = state.tickets.find(tk => tk.id === state.seleccionado);
+      if (!t) { panel.classList.add('oculto'); return; }
+
+      panel.classList.remove('oculto');
+      const est = estadoTicket(t);
+      const asig = asignadoTicket(t);
+
+      document.getElementById('pd-id').textContent = t.id;
+
+      const bPri = document.getElementById('pd-badge-pri');
+      bPri.className = `badge badge-${esc(t.prioridad)}`;
+      bPri.textContent = t.prioridad;
+
+      const bEst = document.getElementById('pd-badge-est');
+      bEst.className = `badge badge-${esc(est)}`;
+      bEst.textContent = est;
+
+      document.getElementById('pd-titulo').textContent = t.titulo;
+      document.getElementById('pd-desc').textContent =
+        t.descripcion.length > 200 ? t.descripcion.slice(0, 200) + '…' : t.descripcion;
+      document.getElementById('pd-zona').textContent = t.zona;
+      document.getElementById('pd-fecha').textContent = formatearFecha(t.fecha);
+      document.getElementById('pd-sistema').textContent = t.sistema_afectado;
+      document.getElementById('pd-cat').innerHTML =
+        `<span class="badge badge-categoria">${esc(t.categoria)}</span>`;
+
+      document.getElementById('pd-asignar').value = asig;
+      document.getElementById('btn-ver-detalle').href =
+        `detalle-ticket.html?id=${encodeURIComponent(t.id)}`;
+    }
+
+    // ── Eventos ────────────────────────────────────────────────────
+
+    // Sidebar: filtro por categoría
+    document.getElementById('sidebar-triaje').addEventListener('click', (e) => {
+      const item = e.target.closest('[data-cat]');
+      if (item && !item.hasAttribute('data-cat-reset')) {
+        const cat = item.dataset.cat;
+        state.filtroCat = state.filtroCat === cat ? null : cat;
+        render();
+        return;
+      }
+      if (e.target.closest('[data-cat-reset]')) {
+        state.filtroCat = null;
+        render();
+        return;
+      }
+      // Filtro por persona (ir a tab correspondiente)
+      const persona = e.target.closest('[data-persona]');
+      if (persona) {
+        const key = persona.dataset.persona;
+        state.tab = key === YO ? 'mias' : key === '' ? 'sin' : 'abiertas';
+        render();
+      }
+    });
+
+    // Tabs
+    document.getElementById('tabs-contenedor').addEventListener('click', (e) => {
+      const tab = e.target.closest('[data-tab]');
+      if (!tab) return;
+      state.tab = tab.dataset.tab;
+      state.seleccionado = null;
+      render();
+    });
+
+    // Filtro prioridad
+    document.getElementById('filtros-prioridad-triaje').addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-pri]');
+      if (!chip) return;
+      const pri = chip.dataset.pri;
+      const idx = state.filtroPrioridad.indexOf(pri);
+      if (idx === -1) state.filtroPrioridad.push(pri);
+      else state.filtroPrioridad.splice(idx, 1);
+      render();
+    });
+
+    // Tabla: clic en fila
+    document.getElementById('tabla-triaje').addEventListener('click', (e) => {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      const id = tr.dataset.id;
+      state.seleccionado = state.seleccionado === id ? null : id;
+      render();
+    });
+
+    // Panel: cerrar
+    document.getElementById('btn-panel-cerrar').addEventListener('click', () => {
+      state.seleccionado = null;
+      render();
+    });
+
+    // Panel: asignar
+    document.getElementById('btn-asignar').addEventListener('click', () => {
+      if (!state.seleccionado) return;
+      const val = document.getElementById('pd-asignar').value;
+      if (val === '') {
+        delete state.asignaciones[state.seleccionado];
+      } else {
+        state.asignaciones[state.seleccionado] = val;
+      }
+      localStorage.setItem('triaje-asignaciones', JSON.stringify(state.asignaciones));
+      render();
+    });
+
+    // Buscador
+    document.getElementById('buscador').addEventListener('input', (e) => {
+      state.busqueda = e.target.value.trim();
+      render();
+    });
+
+    // ── Carga de datos ────────────────────────────────────────────
+    Promise.all([
+      fetch('data/tickets.json').then(r => r.json()).catch(() => []),
+      Promise.resolve(JSON.parse(localStorage.getItem('tickets-locales') || '[]')),
+    ]).then(([base, locales]) => {
+      state.tickets      = [...base, ...locales];
+      state.asignaciones = JSON.parse(localStorage.getItem('triaje-asignaciones') || '{}');
+      state.estados      = JSON.parse(localStorage.getItem('tickets-estado')      || '{}');
+      render();
+    }).catch(() => {
+      document.querySelector('.triaje-contenido').innerHTML =
+        '<p class="error-carga">Error: no se pudo cargar data/tickets.json. Sirve desde un servidor HTTP.</p>';
+    });
+  </script>
+</body>
+</html>

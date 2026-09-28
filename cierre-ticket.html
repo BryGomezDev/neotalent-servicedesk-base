@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cierre de ticket — Mini Service Desk</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="header-app">
+    <span class="header-logo">
+      Mini Service Desk
+      <span class="logo-sub">Seguridad física</span>
+    </span>
+    <a class="header-nav-item" href="triaje.html">← Bandeja</a>
+    <div class="header-spacer"></div>
+    <span class="operador-badge">JF</span>
+  </header>
+
+  <main class="pagina-contenido">
+    <div class="breadcrumb">
+      <a href="triaje.html">Bandeja</a>
+      <span class="breadcrumb-sep">›</span>
+      <a id="bread-detalle" href="#">Ticket</a>
+      <span class="breadcrumb-sep">›</span>
+      <span>Cierre</span>
+    </div>
+
+    <p id="msg-cargando" style="padding:20px;color:var(--texto-sec);font-weight:600">Cargando…</p>
+    <p id="msg-error" class="error-carga" style="display:none"></p>
+
+    <div id="contenido-cierre" class="form-layout" style="display:none">
+
+      <!-- Formulario de cierre -->
+      <div class="form-panel">
+        <h1 class="form-titulo">Cerrar ticket</h1>
+
+        <div class="form-grupo">
+          <label class="campo-label">Código de resolución
+            <div class="radio-grupo" id="grupo-resolucion">
+              <label class="radio-opcion">
+                <input type="radio" name="resolucion" value="resuelto" />
+                <span class="radio-opcion__texto">
+                  <span class="radio-opcion__nombre">Resuelto</span>
+                  <span class="radio-opcion__desc">El problema fue identificado y corregido.</span>
+                </span>
+              </label>
+              <label class="radio-opcion">
+                <input type="radio" name="resolucion" value="solucion-temporal" />
+                <span class="radio-opcion__texto">
+                  <span class="radio-opcion__nombre">Solución temporal</span>
+                  <span class="radio-opcion__desc">Se aplicó un parche o workaround; requiere seguimiento.</span>
+                </span>
+              </label>
+              <label class="radio-opcion">
+                <input type="radio" name="resolucion" value="duplicado" />
+                <span class="radio-opcion__texto">
+                  <span class="radio-opcion__nombre">Duplicado</span>
+                  <span class="radio-opcion__desc">Ya existe otro ticket que cubre el mismo problema.</span>
+                </span>
+              </label>
+              <label class="radio-opcion">
+                <input type="radio" name="resolucion" value="no-procede" />
+                <span class="radio-opcion__texto">
+                  <span class="radio-opcion__nombre">No procede</span>
+                  <span class="radio-opcion__desc">El problema no es real o está fuera del alcance.</span>
+                </span>
+              </label>
+              <label class="radio-opcion">
+                <input type="radio" name="resolucion" value="sin-respuesta" />
+                <span class="radio-opcion__texto">
+                  <span class="radio-opcion__nombre">Sin respuesta</span>
+                  <span class="radio-opcion__desc">El solicitante no respondió en el plazo esperado.</span>
+                </span>
+              </label>
+            </div>
+            <span class="campo-error" id="err-res"></span>
+          </label>
+
+          <label class="campo-label">Notas de resolución
+            <textarea id="f-notas" class="campo-textarea" rows="4"
+                      placeholder="Describe la solución aplicada o la razón del cierre (mín. 20 caracteres)"
+                      required></textarea>
+            <span class="campo-contador" id="cont-notas">0 / mín. 20</span>
+            <span class="campo-error" id="err-notas"></span>
+          </label>
+
+          <label class="campo-label">Causa raíz (opcional)
+            <textarea id="f-causa" class="campo-textarea" rows="3"
+                      placeholder="¿Qué originó el problema? Útil para prevenir recurrencias."></textarea>
+          </label>
+        </div>
+
+        <div class="form-acciones">
+          <button id="btn-confirmar-cierre" class="btn btn-rojo">Cerrar ticket</button>
+          <a id="btn-volver" href="#" class="btn btn-secundario">Volver al detalle</a>
+        </div>
+      </div>
+
+      <!-- Aside: resumen del ticket -->
+      <aside class="form-aside">
+        <p class="aside-titulo">Ticket a cerrar</p>
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">ID</span>
+          <span class="aside-campo__valor" id="a-id"></span>
+        </div>
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">Título</span>
+          <span class="aside-campo__valor" id="a-titulo"></span>
+        </div>
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">Categoría</span>
+          <span class="aside-campo__valor" id="a-cat"></span>
+        </div>
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">Prioridad</span>
+          <span class="aside-campo__valor" id="a-pri"></span>
+        </div>
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">Zona</span>
+          <span class="aside-campo__valor" id="a-zona"></span>
+        </div>
+        <div class="aside-campo">
+          <span class="aside-campo__etiqueta">Estado actual</span>
+          <span class="aside-campo__valor" id="a-estado"></span>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Diálogo de confirmación -->
+  <div id="dialogo-confirmar" class="dialogo-overlay">
+    <div class="dialogo-caja">
+      <h2 class="dialogo-titulo">¿Confirmar cierre?</h2>
+      <p class="dialogo-texto">
+        Esta acción cerrará el ticket <strong id="conf-id"></strong>.
+        Una vez cerrado, no podrá volver a abrirse desde esta interfaz.
+      </p>
+      <div class="dialogo-acciones">
+        <button id="conf-cancelar" class="btn btn-secundario">Cancelar</button>
+        <button id="conf-aceptar" class="btn btn-rojo">Confirmar cierre</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    const params = new URLSearchParams(location.search);
+    const ticketId = params.get('id');
+    let ticket = null;
+
+    // Contador de notas
+    const notasEl = document.getElementById('f-notas');
+    const contNotes = document.getElementById('cont-notas');
+    notasEl.addEventListener('input', () => {
+      const n = notasEl.value.length;
+      contNotes.textContent = n + (n < 20 ? ' / mín. 20' : ' caracteres');
+      contNotes.className = 'campo-contador' + (n < 20 && n > 0 ? ' critico' : '');
+    });
+
+    // Resaltar radio seleccionado
+    document.getElementById('grupo-resolucion').addEventListener('change', (e) => {
+      document.querySelectorAll('.radio-opcion').forEach(el => el.classList.remove('seleccionada'));
+      e.target.closest('.radio-opcion').classList.add('seleccionada');
+    });
+
+    function validar() {
+      let ok = true;
+      const res = document.querySelector('input[name=resolucion]:checked');
+      if (!res) {
+        document.getElementById('err-res').textContent = 'Selecciona un código de resolución.';
+        ok = false;
+      } else {
+        document.getElementById('err-res').textContent = '';
+      }
+      const notas = notasEl.value.trim();
+      if (notas.length < 20) {
+        notasEl.classList.add('error');
+        document.getElementById('err-notas').textContent = 'Mínimo 20 caracteres.';
+        ok = false;
+      } else {
+        notasEl.classList.remove('error');
+        document.getElementById('err-notas').textContent = '';
+      }
+      return ok;
+    }
+
+    document.getElementById('btn-confirmar-cierre').addEventListener('click', () => {
+      if (!validar()) return;
+      document.getElementById('conf-id').textContent = ticketId;
+      document.getElementById('dialogo-confirmar').classList.add('visible');
+    });
+
+    document.getElementById('conf-cancelar').addEventListener('click', () => {
+      document.getElementById('dialogo-confirmar').classList.remove('visible');
+    });
+
+    document.getElementById('conf-aceptar').addEventListener('click', () => {
+      const res = document.querySelector('input[name=resolucion]:checked').value;
+      const notas = notasEl.value.trim();
+      const causa = document.getElementById('f-causa').value.trim();
+
+      const todos = JSON.parse(localStorage.getItem('tickets-estado') || '{}');
+      const ext = todos[ticketId] || { estado: ticket.estado, historial: [], resolucion: null };
+
+      ext.historial.push({
+        tipo: 'estado',
+        estado: 'cerrado',
+        fecha: new Date().toISOString(),
+        usuario: 'Operador',
+        nota: `Ticket cerrado — ${res}`,
+      });
+
+      ext.estado = 'cerrado';
+      ext.resolucion = { codigo: res, notas, causa: causa || null };
+      todos[ticketId] = ext;
+      localStorage.setItem('tickets-estado', JSON.stringify(todos));
+
+      window.location.href = `detalle-ticket.html?id=${encodeURIComponent(ticketId)}`;
+    });
+
+    // Carga inicial
+    if (!ticketId) {
+      document.getElementById('msg-cargando').style.display = 'none';
+      document.getElementById('msg-error').textContent = 'No se especificó un ID de ticket.';
+      document.getElementById('msg-error').style.display = 'block';
+    } else {
+      Promise.all([
+        fetch('data/tickets.json').then(r => r.json()).catch(() => []),
+        Promise.resolve(JSON.parse(localStorage.getItem('tickets-locales') || '[]')),
+      ]).then(([base, locales]) => {
+        const todos = [...base, ...locales];
+        ticket = todos.find(t => t.id === ticketId);
+        document.getElementById('msg-cargando').style.display = 'none';
+
+        if (!ticket) {
+          document.getElementById('msg-error').textContent = `Ticket "${ticketId}" no encontrado.`;
+          document.getElementById('msg-error').style.display = 'block';
+          return;
+        }
+
+        // Verificar que se puede cerrar
+        const extTodos = JSON.parse(localStorage.getItem('tickets-estado') || '{}');
+        const ext = extTodos[ticketId];
+        const estadoActual = ext ? ext.estado : ticket.estado;
+
+        if (estadoActual === 'cerrado') {
+          document.getElementById('msg-error').textContent = 'Este ticket ya está cerrado.';
+          document.getElementById('msg-error').style.display = 'block';
+          return;
+        }
+
+        // Renderizar aside
+        document.getElementById('a-id').textContent = ticket.id;
+        document.getElementById('a-titulo').textContent = ticket.titulo;
+        document.getElementById('a-cat').innerHTML = `<span class="badge badge-categoria">${esc(ticket.categoria)}</span>`;
+        document.getElementById('a-pri').innerHTML = `<span class="badge badge-${esc(ticket.prioridad)}">${esc(ticket.prioridad)}</span>`;
+        document.getElementById('a-zona').textContent = ticket.zona;
+        document.getElementById('a-estado').innerHTML = `<span class="badge badge-${esc(estadoActual)}">${esc(estadoActual)}</span>`;
+
+        document.getElementById('bread-detalle').textContent = ticket.id;
+        document.getElementById('bread-detalle').href = `detalle-ticket.html?id=${encodeURIComponent(ticketId)}`;
+        document.getElementById('btn-volver').href = `detalle-ticket.html?id=${encodeURIComponent(ticketId)}`;
+        document.title = `Cerrar ${ticket.id} — Mini Service Desk`;
+
+        document.getElementById('contenido-cierre').style.display = '';
+      }).catch(() => {
+        document.getElementById('msg-cargando').style.display = 'none';
+        document.getElementById('msg-error').textContent = 'Error cargando datos. Sirve desde un servidor HTTP.';
+        document.getElementById('msg-error').style.display = 'block';
+      });
+    }
+  </script>
+</body>
+</html>

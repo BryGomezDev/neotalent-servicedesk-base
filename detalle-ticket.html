@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Detalle de ticket — Mini Service Desk</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="header-app">
+    <span class="header-logo">
+      Mini Service Desk
+      <span class="logo-sub">Seguridad física</span>
+    </span>
+    <a class="header-nav-item" href="triaje.html">← Bandeja</a>
+    <div class="header-spacer"></div>
+    <span class="operador-badge">JF</span>
+  </header>
+
+  <main class="pagina-contenido">
+    <div class="breadcrumb">
+      <a href="triaje.html">Bandeja</a>
+      <span class="breadcrumb-sep">›</span>
+      <span id="bread-id">Ticket</span>
+    </div>
+
+    <div id="contenido-detalle" class="detalle-layout" style="display:none">
+      <!-- Panel principal -->
+      <div class="detalle-panel">
+        <div class="detalle-cabecera">
+          <div>
+            <div class="detalle-id" id="d-id"></div>
+            <h1 class="detalle-titulo" id="d-titulo"></h1>
+            <div class="flex gap-10 items-center mb-12">
+              <span id="d-badge-prioridad" class="badge"></span>
+              <span id="d-badge-estado" class="badge"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detalle-meta" id="d-meta"></div>
+
+        <p class="detalle-desc-titulo">Descripción</p>
+        <div class="detalle-desc" id="d-desc"></div>
+
+        <!-- Historial -->
+        <p class="historial-titulo">Historial</p>
+        <ul class="historial-lista" id="d-historial"></ul>
+
+        <!-- Añadir nota -->
+        <div class="nota-form">
+          <p class="historial-titulo">Añadir nota</p>
+          <textarea id="nota-texto" class="campo-textarea w-full"
+                    placeholder="Escribe una nota o actualización..." rows="3"></textarea>
+          <div class="form-acciones">
+            <button id="btn-nota" class="btn btn-oscuro btn-sm">Guardar nota</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aside de acciones -->
+      <aside class="detalle-aside">
+        <div class="aside-estado">
+          <p class="aside-estado__label">Estado actual</p>
+          <div id="aside-badge-estado"></div>
+
+          <div class="transiciones" id="aside-transiciones"></div>
+
+          <hr style="border:none;border-top:1px solid var(--borde-cl);margin:8px 0" />
+
+          <a id="btn-cerrar" href="#" class="btn btn-rojo w-full"
+             style="justify-content:center">Cerrar ticket</a>
+
+          <hr style="border:none;border-top:1px solid var(--borde-cl);margin:8px 0" />
+
+          <div class="aside-campo">
+            <span class="aside-campo__etiqueta">Reportado por</span>
+            <span class="aside-campo__valor" id="d-reportado"></span>
+          </div>
+          <div class="aside-campo">
+            <span class="aside-campo__etiqueta">Sistema</span>
+            <span class="aside-campo__valor" id="d-sistema"></span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <p id="msg-error" class="error-carga" style="display:none"></p>
+    <p id="msg-cargando" style="padding:20px;color:var(--texto-sec);font-weight:600">Cargando…</p>
+  </main>
+
+  <script src="js/utils/formato.js"></script>
+  <script>
+    const TRANS = {
+      'abierto':   ['en-curso'],
+      'en-curso':  ['pendiente', 'cerrado'],
+      'pendiente': ['en-curso', 'cerrado'],
+      'cerrado':   [],
+    };
+
+    const ETIQUETAS_TRANS = {
+      'en-curso':  'Tomar / iniciar',
+      'pendiente': 'Poner en espera',
+      'cerrado':   'Cerrar directamente',
+    };
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    const params = new URLSearchParams(location.search);
+    const ticketId = params.get('id');
+
+    let ticket = null;
+    let extState = null; // {estado, historial, resolucion}
+
+    function estadoActual() {
+      return extState ? extState.estado : ticket.estado;
+    }
+
+    function cargarExtState() {
+      const todos = JSON.parse(localStorage.getItem('tickets-estado') || '{}');
+      extState = todos[ticketId] || null;
+    }
+
+    function guardarExtState() {
+      const todos = JSON.parse(localStorage.getItem('tickets-estado') || '{}');
+      todos[ticketId] = extState;
+      localStorage.setItem('tickets-estado', JSON.stringify(todos));
+    }
+
+    function iniciarExtState() {
+      if (!extState) {
+        extState = { estado: ticket.estado, historial: [], resolucion: null };
+        extState.historial.push({
+          tipo: 'estado',
+          estado: ticket.estado,
+          fecha: ticket.fecha + 'T00:00:00',
+          usuario: ticket.reportado_por,
+          nota: 'Ticket creado',
+        });
+        guardarExtState();
+      }
+    }
+
+    function render() {
+      const est = estadoActual();
+
+      // Cabecera
+      document.getElementById('bread-id').textContent = ticket.id;
+      document.getElementById('d-id').textContent = ticket.id;
+      document.getElementById('d-titulo').textContent = ticket.titulo;
+
+      const bPri = document.getElementById('d-badge-prioridad');
+      bPri.className = `badge badge-${esc(ticket.prioridad)}`;
+      bPri.textContent = ticket.prioridad;
+
+      const bEst = document.getElementById('d-badge-estado');
+      bEst.className = `badge badge-${esc(est)}`;
+      bEst.textContent = est;
+
+      // Meta grid
+      document.getElementById('d-meta').innerHTML = [
+        ['Fecha', esc(ticket.fecha)],
+        ['Zona', esc(ticket.zona)],
+        ['Categoría', `<span class="badge badge-categoria">${esc(ticket.categoria)}</span>`],
+        ['Estado', `<span class="badge badge-${esc(est)}">${esc(est)}</span>`],
+      ].map(([et, val]) => `
+        <div class="detalle-campo">
+          <span class="detalle-campo__etiqueta">${et}</span>
+          <span class="detalle-campo__valor">${val}</span>
+        </div>`).join('');
+
+      document.getElementById('d-desc').textContent = ticket.descripcion;
+      document.getElementById('d-reportado').textContent = ticket.reportado_por;
+      document.getElementById('d-sistema').textContent = ticket.sistema_afectado;
+
+      // Historial
+      const hist = extState ? extState.historial : [];
+      document.getElementById('d-historial').innerHTML = hist.map(ev => `
+        <li class="historial-item historial-item--${esc(ev.tipo)}">
+          <span class="historial-punto"></span>
+          <div class="historial-contenido">
+            <div class="historial-evento">${esc(ev.nota || ev.estado)}</div>
+            <div class="historial-fecha">${esc(ev.fecha.slice(0, 10))} — ${esc(ev.usuario)}</div>
+            ${ev.tipo === 'nota' ? `<div class="historial-nota-texto">${esc(ev.texto || '')}</div>` : ''}
+          </div>
+        </li>`).join('') || '<li style="color:var(--texto-sec);font-size:13px">Sin entradas aún.</li>';
+
+      // Aside estado
+      const abEst = document.getElementById('aside-badge-estado');
+      abEst.innerHTML = `<span class="badge badge-${esc(est)}" style="font-size:13px;padding:4px 14px">${esc(est)}</span>`;
+
+      // Transiciones
+      const trans = TRANS[est] || [];
+      document.getElementById('aside-transiciones').innerHTML = trans
+        .filter(t => t !== 'cerrado') // "cerrado" se hace por el botón dedicado
+        .map(t => `
+          <button class="btn btn-primario btn-sm w-full"
+                  style="justify-content:center"
+                  data-trans="${esc(t)}">
+            ${esc(ETIQUETAS_TRANS[t] || t)}
+          </button>`).join('');
+
+      // Botón cerrar
+      const btnCerrar = document.getElementById('btn-cerrar');
+      const puedeCerrar = ['en-curso', 'pendiente'].includes(est);
+      btnCerrar.href = puedeCerrar
+        ? `cierre-ticket.html?id=${encodeURIComponent(ticket.id)}`
+        : '#';
+      btnCerrar.style.opacity = puedeCerrar ? '1' : '0.4';
+      btnCerrar.style.pointerEvents = puedeCerrar ? 'auto' : 'none';
+      btnCerrar.title = puedeCerrar ? '' : 'Pasa a "en curso" antes de cerrar';
+    }
+
+    // Transición de estado
+    document.getElementById('aside-transiciones').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-trans]');
+      if (!btn) return;
+      const nuevoEstado = btn.dataset.trans;
+      const est = estadoActual();
+      if (!(TRANS[est] || []).includes(nuevoEstado)) return;
+
+      extState.estado = nuevoEstado;
+      extState.historial.push({
+        tipo: 'estado',
+        estado: nuevoEstado,
+        fecha: new Date().toISOString(),
+        usuario: 'Operador',
+        nota: `Estado cambiado a "${nuevoEstado}"`,
+      });
+      guardarExtState();
+      render();
+    });
+
+    // Añadir nota
+    document.getElementById('btn-nota').addEventListener('click', () => {
+      const texto = document.getElementById('nota-texto').value.trim();
+      if (!texto) return;
+      extState.historial.push({
+        tipo: 'nota',
+        estado: estadoActual(),
+        fecha: new Date().toISOString(),
+        usuario: 'Operador',
+        nota: 'Nota añadida',
+        texto,
+      });
+      guardarExtState();
+      document.getElementById('nota-texto').value = '';
+      render();
+    });
+
+    // Carga inicial
+    if (!ticketId) {
+      document.getElementById('msg-cargando').style.display = 'none';
+      document.getElementById('msg-error').textContent = 'No se especificó un ID de ticket.';
+      document.getElementById('msg-error').style.display = 'block';
+    } else {
+      Promise.all([
+        fetch('data/tickets.json').then(r => r.json()).catch(() => []),
+        Promise.resolve(JSON.parse(localStorage.getItem('tickets-locales') || '[]')),
+      ]).then(([base, locales]) => {
+        const todos = [...base, ...locales];
+        ticket = todos.find(t => t.id === ticketId);
+        document.getElementById('msg-cargando').style.display = 'none';
+
+        if (!ticket) {
+          document.getElementById('msg-error').textContent = `Ticket "${ticketId}" no encontrado.`;
+          document.getElementById('msg-error').style.display = 'block';
+          return;
+        }
+
+        cargarExtState();
+        iniciarExtState();
+        document.getElementById('contenido-detalle').style.display = '';
+        document.title = `${ticket.id} — Mini Service Desk`;
+        render();
+      }).catch(() => {
+        document.getElementById('msg-cargando').style.display = 'none';
+        document.getElementById('msg-error').textContent = 'Error cargando datos. Sirve desde un servidor HTTP.';
+        document.getElementById('msg-error').style.display = 'block';
+      });
+    }
+  </script>
+</body>
+</html>
