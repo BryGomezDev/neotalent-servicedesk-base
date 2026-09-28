@@ -1,0 +1,26 @@
+# Instrucciones internas de Claude Code
+CLAUDE.md
+
+# Documentación interna del proyecto
+README.md
+docs/
+
+# Artefactos internos del agente de IA
+.superpowers/
+
+# Tests de Node.js (no funcionan en el navegador)
+tests/
+
+# Imágenes de referencia (no son parte de la app)
+assets/
+
+# Scripts no conectados a ningún HTML
+js/app.js
+js/utils/filtrar.js
+
+# READMEs internos de carpetas
+js/components/README.md
+js/utils/README.md
+
+# Control de versiones
+.git/
